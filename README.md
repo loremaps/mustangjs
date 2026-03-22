@@ -40,15 +40,52 @@ console.log(ci.getGrandTotal().toString());
 
 ### Validate
 
+Validate invoice XML against official EN16931 and XRechnung Schematron rules using `XMLValidator`. This runs the same XSLT-based business rules used by the Java [mustangproject](https://github.com/ZUGFeRD/mustangproject) validator — hundreds of rules maintained by the standards bodies (CEN, KoSIT).
+
+```typescript
+import { XMLValidator } from 'mustangjs';
+
+const validator = new XMLValidator();
+const result = await validator.validate(xmlString);
+
+result.isValid();          // true if no errors
+result.getErrors();        // ValidationResultItem[]
+result.getWarnings();      // warnings (non-blocking)
+result.hasRule('BR-02');   // check specific rule
+```
+
+Format (CII/UBL) and profile are auto-detected from the XML. You can override:
+
+```typescript
+import { XMLValidator, Profiles } from 'mustangjs';
+
+const result = await validator.validate(xmlString, {
+  profile: Profiles.getByName('XRECHNUNG'),  // override auto-detected profile
+  skipProgrammatic: true,                     // Schematron only (recommended)
+});
+```
+
+There is also a lower-level `InvoiceValidator` for programmatic rule checks on `Invoice` objects (without XML/Schematron):
+
 ```typescript
 import { InvoiceValidator, Profiles } from 'mustangjs';
 
 const validator = new InvoiceValidator(Profiles.getByName('EN16931'));
 const result = validator.validate(invoice);
-result.isValid();          // true if no errors
-result.getErrors();        // ValidationResultItem[]
-result.hasRule('BR-02');   // check specific rule
 ```
+
+### Schematron rules
+
+Validation is powered by pre-compiled Schematron XSLT stylesheets (via [saxon-js](https://www.saxonica.com/saxon-js/)):
+
+| Ruleset | Format | Covers |
+|---------|--------|--------|
+| EN16931-CII | CII | Core EN16931 business rules for ZUGFeRD/Factur-X |
+| EN16931-UBL | UBL | Core EN16931 business rules (incl. PEPPOL BIS) |
+| XRechnung-CII | CII | German XRechnung-specific rules (v3.0) |
+| XRechnung-UBL | UBL | German XRechnung-specific rules (v3.0) |
+
+The SEF files live in `src/validation/schematron/`. See [SCHEMATRON.md](SCHEMATRON.md) for how to update them when new rule versions are released.
 
 ## Supported formats
 

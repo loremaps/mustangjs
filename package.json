@@ -13,6 +13,7 @@
   "dependencies": {
     "@xmldom/xmldom": "^0.8.11",
     "big.js": "^6.2.2",
+    "saxon-js": "^2.7.0",
     "xpath": "^0.0.34"
   },
   "devDependencies": {

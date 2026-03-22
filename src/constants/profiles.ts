@@ -55,4 +55,35 @@ export class Profiles {
     if (!profile) throw new Error(`Profile not found: ${name}`);
     return profile;
   }
+
+  /**
+   * Detect profile from a guideline/customization ID string (e.g. from XML).
+   * Returns null if no profile can be determined.
+   */
+  static getByID(id: string): Profile | null {
+    if (!id) return null;
+    const lower = id.toLowerCase();
+
+    // Order matters: check more specific patterns before general ones
+    if (lower.includes('xrechnung') || lower.includes('xeinkauf') || lower.includes('peppol')) {
+      return Profiles.zf2Map.get('XRECHNUNG')!;
+    }
+    if (lower.includes('extended')) {
+      return Profiles.zf2Map.get('EXTENDED')!;
+    }
+    if (lower.includes('minimum')) {
+      return Profiles.zf2Map.get('MINIMUM')!;
+    }
+    if (lower.includes('basicwl') || lower.includes('basic-wl')) {
+      return Profiles.zf2Map.get('BASICWL')!;
+    }
+    if (lower.includes('basic')) {
+      return Profiles.zf2Map.get('BASIC')!;
+    }
+    if (lower.includes('en16931')) {
+      return Profiles.zf2Map.get('EN16931')!;
+    }
+
+    return null;
+  }
 }

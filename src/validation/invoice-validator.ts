@@ -77,7 +77,14 @@ export class InvoiceValidator {
     }
 
     // Seller address (BR-07) and country (BR-08)
-    if (!sender?.getStreet() && !sender?.getZIP() && !sender?.getLocation()) {
+    // BR-07 checks that the postal address group (BG-5) exists.
+    // Country alone satisfies this — country-only addresses are valid per EN16931.
+    if (
+      !sender?.getStreet() &&
+      !sender?.getZIP() &&
+      !sender?.getLocation() &&
+      !sender?.getCountry()
+    ) {
       items.push({
         severity: Severity.ERROR,
         ruleId: 'BR-07',
@@ -95,10 +102,13 @@ export class InvoiceValidator {
     }
 
     // Buyer address (BR-09) and country (BR-10)
+    // BR-09 checks that the postal address group (BG-8) exists.
+    // Country alone satisfies this — country-only addresses are valid per EN16931.
     if (
       !recipient?.getStreet() &&
       !recipient?.getZIP() &&
-      !recipient?.getLocation()
+      !recipient?.getLocation() &&
+      !recipient?.getCountry()
     ) {
       items.push({
         severity: Severity.ERROR,
@@ -221,6 +231,10 @@ export class InvoiceValidator {
     invoice: ExportableTransaction,
     items: ValidationResultItem[],
   ): void {
+    // Track whether any item in a tax category has an exemption reason
+    // (EN16931 BR-E-10/BR-AE-10 require it at VAT breakdown level, not per line)
+    const categoryHasExemptionReason = new Map<string, boolean>();
+
     for (let i = 0; i < invoice.getZFItems().length; i++) {
       const lineItem = invoice.getZFItems()[i];
       const product = lineItem.getProduct();
@@ -230,9 +244,14 @@ export class InvoiceValidator {
       const vatPercent = product.getVATPercent();
       const location = `line[${i}]`;
 
+      // Track exemption reasons per category
+      if (categoryCode && product.getTaxExemptionReason()) {
+        categoryHasExemptionReason.set(categoryCode, true);
+      }
+
       switch (categoryCode) {
         case 'S': // Standard rate
-          if (vatPercent == null || vatPercent.lte(ZERO)) {
+          if (vatPercent != null && vatPercent.lte(ZERO)) {
             items.push({
               severity: Severity.ERROR,
               ruleId: 'BR-S',
@@ -252,14 +271,6 @@ export class InvoiceValidator {
               location,
             });
           }
-          if (!product.getTaxExemptionReason()) {
-            items.push({
-              severity: Severity.ERROR,
-              ruleId: 'BR-E',
-              message: 'Tax exempt items must have a tax exemption reason.',
-              location,
-            });
-          }
           break;
 
         case 'AE': // Reverse charge
@@ -268,15 +279,6 @@ export class InvoiceValidator {
               severity: Severity.ERROR,
               ruleId: 'BR-AE',
               message: 'Reverse charge items must have a VAT rate of zero.',
-              location,
-            });
-          }
-          if (!product.getTaxExemptionReason()) {
-            items.push({
-              severity: Severity.ERROR,
-              ruleId: 'BR-AE',
-              message:
-                'Reverse charge items must have a tax exemption reason.',
               location,
             });
           }
@@ -317,6 +319,31 @@ export class InvoiceValidator {
           }
           break;
       }
+    }
+
+    // Document-level exemption reason checks (BR-E-10, BR-AE-10)
+    const categoriesUsed = new Set<string>();
+    for (const lineItem of invoice.getZFItems()) {
+      const code = lineItem.getProduct()?.getTaxCategoryCode();
+      if (code) categoriesUsed.add(code);
+    }
+
+    if (categoriesUsed.has('E') && !categoryHasExemptionReason.get('E')) {
+      items.push({
+        severity: Severity.ERROR,
+        ruleId: 'BR-E',
+        message:
+          'VAT breakdown for tax exempt (E) must have a tax exemption reason.',
+      });
+    }
+
+    if (categoriesUsed.has('AE') && !categoryHasExemptionReason.get('AE')) {
+      items.push({
+        severity: Severity.ERROR,
+        ruleId: 'BR-AE',
+        message:
+          'VAT breakdown for reverse charge (AE) must have a tax exemption reason.',
+      });
     }
   }
 }

@@ -43,6 +43,9 @@ export type { SeverityType } from './validation/severity.js';
 export type { ValidationResultItem } from './validation/validation-result-item.js';
 export { ValidationResult } from './validation/validation-result.js';
 export { InvoiceValidator } from './validation/invoice-validator.js';
+export { SchematronValidator } from './validation/schematron-validator.js';
+export { XMLValidator } from './validation/xml-validator.js';
+export type { XMLValidationOptions } from './validation/xml-validator.js';
 
 // XML tools
 export { nDigitFormat, nDigitFormatDecimalRange, encodeXML } from './xml/xml-tools.js';

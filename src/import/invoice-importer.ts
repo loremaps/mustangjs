@@ -10,6 +10,7 @@ import { Contact } from '../model/contact.js';
 import { BankDetails } from '../model/bank-details.js';
 import { Charge } from '../model/charge.js';
 import { Allowance } from '../model/allowance.js';
+import { Profiles, type Profile } from '../constants/profiles.js';
 
 type EStandard = 'cii' | 'ubl' | 'ubl_creditnote';
 
@@ -45,6 +46,24 @@ export class ZUGFeRDInvoiceImporter {
       this.standard = 'cii';
     }
     return this.standard;
+  }
+
+  /**
+   * Auto-detect the profile from the XML guideline/customization ID.
+   */
+  getProfile(): Profile | null {
+    if (!this.doc) throw new Error('No XML data loaded');
+    if (this.isUBL()) {
+      const customizationID = this.str(
+        "/*[local-name()='Invoice' or local-name()='CreditNote']/*[local-name()='CustomizationID']",
+      );
+      return Profiles.getByID(customizationID);
+    }
+    // CII
+    const guidelineID = this.str(
+      "//*[local-name()='GuidelineSpecifiedDocumentContextParameter']/*[local-name()='ID']",
+    );
+    return Profiles.getByID(guidelineID);
   }
 
   private isUBL(): boolean {
@@ -264,6 +283,22 @@ export class ZUGFeRDInvoiceImporter {
     );
     if (categoryCode) {
       product.setTaxCategoryCode(categoryCode);
+    }
+
+    // Tax exemption reason
+    const exemptionReason = this.str(
+      ".//*[local-name()='ApplicableTradeTax']/*[local-name()='ExemptionReason']",
+      lineNode,
+    );
+    if (exemptionReason) {
+      product.setTaxExemptionReason(exemptionReason);
+    }
+    const exemptionReasonCode = this.str(
+      ".//*[local-name()='ApplicableTradeTax']/*[local-name()='ExemptionReasonCode']",
+      lineNode,
+    );
+    if (exemptionReasonCode) {
+      product.setTaxExemptionReasonCode(exemptionReasonCode);
     }
 
     // Unit from BilledQuantity
@@ -700,6 +735,18 @@ export class ZUGFeRDInvoiceImporter {
 
         const percent = this.str("./*[local-name()='Percent']", taxCatNode);
         if (percent) product.setVATPercent(new Big(percent));
+
+        const exemptionReason = this.str(
+          "./*[local-name()='TaxExemptionReason']",
+          taxCatNode,
+        );
+        if (exemptionReason) product.setTaxExemptionReason(exemptionReason);
+
+        const exemptionReasonCode = this.str(
+          "./*[local-name()='TaxExemptionReasonCode']",
+          taxCatNode,
+        );
+        if (exemptionReasonCode) product.setTaxExemptionReasonCode(exemptionReasonCode);
       }
 
       // Additional item properties (attributes)

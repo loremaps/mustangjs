@@ -181,14 +181,25 @@ describe('InvoiceValidator', () => {
       expect(result.hasRule('BR-06')).toBe(true);
     });
 
-    it('BR-07: missing seller address', () => {
+    it('BR-07: missing seller address (no address fields at all)', () => {
+      const inv = createValidInvoice();
+      inv.setSender(
+        new TradeParty('Seller', undefined, undefined, undefined, undefined)
+          .addVATID('DE123'),
+      );
+      const result = new InvoiceValidator(en16931).validate(inv);
+      expect(result.hasRule('BR-07')).toBe(true);
+    });
+
+    it('BR-07: country-only address satisfies postal address group', () => {
+      // EN16931 BG-5 exists if any address field is present; country alone is sufficient.
       const inv = createValidInvoice();
       inv.setSender(
         new TradeParty('Seller', undefined, undefined, undefined, 'DE')
           .addVATID('DE123'),
       );
       const result = new InvoiceValidator(en16931).validate(inv);
-      expect(result.hasRule('BR-07')).toBe(true);
+      expect(result.hasRule('BR-07')).toBe(false);
     });
 
     it('BR-08: missing seller country', () => {
@@ -201,13 +212,24 @@ describe('InvoiceValidator', () => {
       expect(result.hasRule('BR-08')).toBe(true);
     });
 
-    it('BR-09: missing buyer address', () => {
+    it('BR-09: missing buyer address (no address fields at all)', () => {
       const inv = createValidInvoice();
       inv.setRecipient(
-        new TradeParty('Buyer', undefined, undefined, undefined, 'DE'),
+        new TradeParty('Buyer', undefined, undefined, undefined, undefined),
       );
       const result = new InvoiceValidator(en16931).validate(inv);
       expect(result.hasRule('BR-09')).toBe(true);
+    });
+
+    it('BR-09: country-only address satisfies postal address group', () => {
+      // EN16931 BG-8 exists if any address field is present; country alone is sufficient.
+      // This matches the real-world case where buyer has empty street/zip/city but valid country.
+      const inv = createValidInvoice();
+      inv.setRecipient(
+        new TradeParty('Buyer', undefined, undefined, undefined, 'GR'),
+      );
+      const result = new InvoiceValidator(en16931).validate(inv);
+      expect(result.hasRule('BR-09')).toBe(false);
     });
 
     it('BR-10: missing buyer country', () => {
