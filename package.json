@@ -1,0 +1,27 @@
+{
+  "name": "mustangjs",
+  "version": "0.1.0",
+  "description": "TypeScript port of mustangproject - ZUGFeRD, Factur-X, XRechnung e-invoicing library",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.8.11",
+    "big.js": "^6.2.2",
+    "xpath": "^0.0.34"
+  },
+  "devDependencies": {
+    "@types/big.js": "^6.2.2",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0"
+}
