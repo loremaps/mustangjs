@@ -199,13 +199,14 @@ describe('Profile auto-detection', () => {
     expect(profile!.getName()).toBe('EXTENDED');
   });
 
-  it('detects XRECHNUNG from UBL PEPPOL BIS fixture', () => {
-    // PEPPOL BIS CustomizationID maps to XRECHNUNG
+  it('detects EN16931 from UBL PEPPOL BIS fixture (not XRECHNUNG)', () => {
+    // PEPPOL BIS CustomizationID is NOT XRechnung — it's a generic EN16931 extension.
+    // Only customization IDs containing "xrechnung" or "xeinkauf" map to XRECHNUNG.
     const xml = readFixture('XRECHNUNG_Einfach.ubl.xml');
     const importer = new ZUGFeRDInvoiceImporter(xml);
     const profile = importer.getProfile();
     expect(profile).not.toBeNull();
-    expect(profile!.getName()).toBe('XRECHNUNG');
+    expect(profile!.getName()).toBe('EN16931');
   });
 
   it('detects EXTENDED from CII foreign currency fixture', () => {

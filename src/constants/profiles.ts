@@ -65,7 +65,7 @@ export class Profiles {
     const lower = id.toLowerCase();
 
     // Order matters: check more specific patterns before general ones
-    if (lower.includes('xrechnung') || lower.includes('xeinkauf') || lower.includes('peppol')) {
+    if (lower.includes('xrechnung') || lower.includes('xeinkauf')) {
       return Profiles.zf2Map.get('XRECHNUNG')!;
     }
     if (lower.includes('extended')) {

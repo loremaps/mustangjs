@@ -239,12 +239,12 @@ export class ZUGFeRD2PullProvider {
     }
     if (trans.getSender() != null) {
       xml += '<ram:SellerTradeParty>';
-      xml += this.getTradePartyAsXML(trans.getSender()!, true, false);
+      xml += this.getTradePartyAsXML(trans.getSender()! , true, false);
       xml += '</ram:SellerTradeParty>';
     }
     if (trans.getRecipient() != null) {
       xml += '<ram:BuyerTradeParty>';
-      xml += this.getTradePartyAsXML(trans.getRecipient()!, false, false);
+      xml += this.getTradePartyAsXML(trans.getRecipient()! , false, false);
       xml += '</ram:BuyerTradeParty>';
     }
     if (trans.getSellerOrderReferencedDocumentID() != null) {
@@ -296,7 +296,7 @@ export class ZUGFeRD2PullProvider {
 
     // Payment means
     if (!isMinimum && trans.getSender() != null) {
-      const sender = trans.getSender()! as TradeParty;
+      const sender = trans.getSender()! ;
       const bankDetailsList = sender.getBankDetails();
       if (bankDetailsList.length > 0) {
         for (const bd of bankDetailsList) {
@@ -539,7 +539,9 @@ export class ZUGFeRD2PullProvider {
     if (party.getLocation() != null) {
       xml += `<ram:CityName>${encodeXML(party.getLocation()!)}</ram:CityName>`;
     }
-    xml += `<ram:CountryID>${party.getCountry() ?? 'DE'}</ram:CountryID>`;
+    if (party.getCountry() != null) {
+      xml += `<ram:CountryID>${encodeXML(party.getCountry()!)}</ram:CountryID>`;
+    }
     xml += '</ram:PostalTradeAddress>';
 
     // Electronic address (email URI) - skip for ShipTo

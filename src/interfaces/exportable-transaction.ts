@@ -1,6 +1,7 @@
 import type { Decimal } from '../decimal.js';
 import type { ExportableItem } from './exportable-item.js';
 import type { AllowanceCharge } from './allowance-charge.js';
+import type { TradeParty } from '../model/trade-party.js';
 import { ZERO } from '../decimal.js';
 
 export interface ExportableTransaction {
@@ -11,8 +12,8 @@ export interface ExportableTransaction {
   getDueDate(): Date | null;
   getDeliveryDate(): Date | null;
   getCurrency(): string;
-  getSender(): TradePartyLike | null;
-  getRecipient(): TradePartyLike | null;
+  getSender(): TradeParty | null;
+  getRecipient(): TradeParty | null;
   getZFItems(): ExportableItem[];
   getZFAllowances(): AllowanceCharge[] | null;
   getZFCharges(): AllowanceCharge[] | null;
@@ -28,16 +29,6 @@ export interface ExportableTransaction {
   getInvoiceReferencedDocumentID(): string | null;
   getDetailedDeliveryPeriodFrom(): Date | null;
   getDetailedDeliveryPeriodTo(): Date | null;
-}
-
-export interface TradePartyLike {
-  getName(): string | null;
-  getStreet(): string | null;
-  getZIP(): string | null;
-  getLocation(): string | null;
-  getCountry(): string | null;
-  getTaxID(): string | null;
-  getVATID(): string | null;
 }
 
 export const ExportableTransactionDefaults = {

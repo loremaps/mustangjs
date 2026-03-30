@@ -4,6 +4,7 @@ import type { AllowanceCharge } from '../interfaces/allowance-charge.js';
 import type { ValueProvider } from '../interfaces/value-provider.js';
 import { LineCalculator } from './line-calculator.js';
 import { VATAmount } from '../model/vat-amount.js';
+import { TaxCategoryCode } from '../constants/tax-category-code.js';
 
 /**
  * Calculates document-level totals, applies VAT on whole invoices.
@@ -210,31 +211,31 @@ export class TransactionCalculator implements ValueProvider {
         continue;
       }
 
-      let percent: Decimal | null = null;
-      if (currentItem.getProduct() != null) {
-        percent = currentItem.getProduct()!.getVATPercent();
-      }
+      const product = currentItem.getProduct();
+      let percent: Decimal | null = product?.getVATPercent() ?? null;
       if (percent == null) {
         percent = ZERO;
       }
+
+      const categoryCode = product?.getTaxCategoryCode() ?? TaxCategoryCode.STANDARDRATE;
 
       const lc = currentItem.getCalculation();
       const itemVATAmount = new VATAmount(
         lc.getItemTotalNetAmount(),
         lc.getItemTotalVATAmount(),
-        currentItem.getProduct()!.getTaxCategoryCode(),
+        categoryCode,
         vatDueDateTypeCode ?? undefined,
         percent,
       );
 
-      const reasonText = currentItem.getProduct()!.getTaxExemptionReason();
+      const reasonText = product?.getTaxExemptionReason() ?? null;
       if (reasonText != null) {
         itemVATAmount.setVatExemptionReasonText(reasonText);
       }
 
       const current = this.getCurrentVatAmount(
         vatAmounts,
-        currentItem.getProduct()!.getTaxCategoryCode(),
+        categoryCode,
         percent,
       );
       if (current == null) {

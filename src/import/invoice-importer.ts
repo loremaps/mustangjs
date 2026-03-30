@@ -589,6 +589,19 @@ export class ZUGFeRDInvoiceImporter {
       invoice.setRecipient(this.extractUBLParty(buyerNode));
     }
 
+    // Bank details (PayeeFinancialAccount is under PaymentMeans, not under a party)
+    const sender = invoice.getSender();
+    if (sender) {
+      const finAccountNodes = this.nodes("//*[local-name()='PaymentMeans']/*[local-name()='PayeeFinancialAccount']");
+      for (const faNode of finAccountNodes) {
+        const iban = this.str("./*[local-name()='ID']", faNode);
+        const bic = this.str("./*[local-name()='FinancialInstitutionBranch']/*[local-name()='ID']", faNode);
+        if (iban) {
+          sender.addBankDetails(new BankDetails(iban, bic || undefined));
+        }
+      }
+    }
+
     // Line items
     const lineTag = isCreditNote ? 'CreditNoteLine' : 'InvoiceLine';
     const lineItems = this.nodes(`//*[local-name()='${lineTag}']`);
@@ -686,16 +699,6 @@ export class ZUGFeRDInvoiceImporter {
       );
       if (fax) contact.setFax(fax);
       party.setContact(contact);
-    }
-
-    // Bank details
-    const finAccountNodes = this.nodes("//*[local-name()='PayeeFinancialAccount']");
-    for (const faNode of finAccountNodes) {
-      const iban = this.str("./*[local-name()='ID']", faNode);
-      const bic = this.str("./*[local-name()='FinancialInstitutionBranch']/*[local-name()='ID']", faNode);
-      if (iban) {
-        party.addBankDetails(new BankDetails(iban, bic || undefined));
-      }
     }
 
     return party;
@@ -808,11 +811,17 @@ export class ZUGFeRDInvoiceImporter {
       const day = parseInt(dateStr.substring(6, 8));
       return new Date(year, month, day);
     }
-    // ISO date format: YYYY-MM-DD
+    // ISO date format: YYYY-MM-DD (UBL)
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       const [year, month, day] = dateStr.split('-').map(Number);
       return new Date(year, month - 1, day);
     }
-    return new Date(dateStr);
+    // CII format 610: YYYYMM (month precision)
+    if (dateStr.length === 6 && /^\d{6}$/.test(dateStr)) {
+      const year = parseInt(dateStr.substring(0, 4));
+      const month = parseInt(dateStr.substring(4, 6)) - 1;
+      return new Date(year, month, 1);
+    }
+    throw new Error(`Unsupported date format: "${dateStr}". Expected YYYYMMDD, YYYY-MM-DD, or YYYYMM.`);
   }
 }

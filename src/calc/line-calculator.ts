@@ -111,7 +111,7 @@ export class LineCalculator {
   }
 
   getItemTotalGrossAmount(): Decimal {
-    return this.itemTotalNetAmount;
+    return this.itemTotalNetAmount.plus(this.itemTotalVATAmount);
   }
 
   getPriceGross(): Decimal {

@@ -50,11 +50,7 @@ export class Product implements ExportableProduct {
   }
 
   setVATPercent(vatPercent: Decimal | null): this {
-    if (vatPercent == null) {
-      this.vatPercent = ZERO;
-    } else {
-      this.vatPercent = vatPercent;
-    }
+    this.vatPercent = vatPercent;
     return this;
   }
 

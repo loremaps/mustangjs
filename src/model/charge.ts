@@ -60,10 +60,10 @@ export class Charge implements AllowanceCharge {
       if (this.totalAmount != null) {
         return this.totalAmount;
       }
-      if (this.percent == null) {
-        throw new Error('totalAmount must be set');
+      if (this.percent != null) {
+        throw new Error('Cannot compute percent-based amount without a ValueProvider. Pass the item as argument.');
       }
-      return null as unknown as Decimal;
+      throw new Error('Either totalAmount or percent must be set');
     }
 
     if (this.totalAmount != null) {

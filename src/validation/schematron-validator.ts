@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DOMParser } from '@xmldom/xmldom';
@@ -11,12 +11,23 @@ import type { ValidationResultItem } from './validation-result-item.js';
 import { ValidationResult } from './validation-result.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-// Resolve schematron dir: works both from src/ (dev vitest) and dist/ (compiled)
-// From src/validation/ → src/validation/schematron/
-// From dist/src/validation/ → src/validation/schematron/ (go up 3 levels to project root)
-const SCHEMATRON_DIR = __dirname.includes('dist')
-  ? join(__dirname, '..', '..', '..', 'src', 'validation', 'schematron')
-  : join(__dirname, 'schematron');
+
+function resolveSchematronDir(): string {
+  // Try sibling schematron/ directory first (works when running from src/)
+  const sibling = join(__dirname, 'schematron');
+  if (existsSync(sibling)) return sibling;
+  // When running from dist/src/validation/, walk up to project root and find src/validation/schematron/
+  let dir = __dirname;
+  for (let i = 0; i < 5; i++) {
+    const candidate = join(dir, 'src', 'validation', 'schematron');
+    if (existsSync(candidate)) return candidate;
+    dir = dirname(dir);
+  }
+  // Fallback to sibling path (will error on first SEF load with a clear message)
+  return sibling;
+}
+
+const SCHEMATRON_DIR = resolveSchematronDir();
 
 type Format = 'cii' | 'ubl';
 
@@ -84,9 +95,18 @@ export class SchematronValidator {
     if (cached) return cached;
 
     const sefPath = join(SCHEMATRON_DIR, filename);
-    const sefJson = JSON.parse(readFileSync(sefPath, 'utf-8'));
-    this.sefCache.set(filename, sefJson);
-    return sefJson;
+    try {
+      const sefJson = JSON.parse(readFileSync(sefPath, 'utf-8'));
+      this.sefCache.set(filename, sefJson);
+      return sefJson;
+    } catch (err) {
+      throw new Error(
+        `Schematron SEF file not found: ${sefPath}. ` +
+        `Ensure SEF files are compiled in src/validation/schematron/. ` +
+        `See SCHEMATRON.md for instructions.`,
+        { cause: err },
+      );
+    }
   }
 
   private parseSVRL(svrlXml: string): SchematronResult {

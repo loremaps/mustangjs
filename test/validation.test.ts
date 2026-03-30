@@ -13,8 +13,11 @@ import { ZUGFeRD2PullProvider } from '../src/export/zugferd2-pull-provider.js';
 import { Severity } from '../src/validation/severity.js';
 import { ValidationResult } from '../src/validation/validation-result.js';
 import { InvoiceValidator } from '../src/validation/invoice-validator.js';
-import * as fs from 'fs';
-import * as path from 'path';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ─── Helpers ───
 
@@ -657,12 +660,8 @@ describe('InvoiceValidator', () => {
 
   describe('Integration with fixtures', () => {
     it('imported factur-x.xml validates as valid', () => {
-      const fixturePath = path.join(
-        __dirname,
-        'fixtures',
-        'factur-x.xml',
-      );
-      const xml = fs.readFileSync(fixturePath, 'utf-8');
+      const fixturePath = join(__dirname, 'fixtures', 'factur-x.xml');
+      const xml = readFileSync(fixturePath, 'utf-8');
       const zii = new ZUGFeRDInvoiceImporter(xml);
       const ci = new CalculatedInvoice();
       zii.extractInto(ci);
