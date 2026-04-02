@@ -350,6 +350,26 @@ export class TransactionCalculator implements ValueProvider {
     }
   }
 
+  /**
+   * Returns information about every tax that is involved in the current transaction.
+   */
+  getTaxDetails(): VATAmount[] {
+    const vatMap = this.getVATPercentAmountMap();
+    const vatAmounts: VATAmount[] = [];
+
+    for (const [key, val] of vatMap.entries()) {
+      vatAmounts.push(
+        new VATAmount(
+          val.getBasis(),
+          val.getCalculated(),
+          val.getCategoryCode(),
+        ).setApplicablePercent(new Big(key)),
+      );
+    }
+
+    return vatAmounts;
+  }
+
   getValue(): Decimal {
     return this.getTotal();
   }

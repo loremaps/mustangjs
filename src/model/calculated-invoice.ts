@@ -17,8 +17,7 @@ export class CalculatedInvoice extends Invoice {
     this.duePayableAmount = this.tc.getDuePayable();
     this.taxBasisAmount = this.tc.getTaxBasis();
     this.vatTotal = ZERO;
-    const vatMap = (this.tc as any).getVATPercentAmountMap() as Map<string, any>;
-    for (const vam of vatMap.values()) {
+    for (const vam of this.tc!.getTaxDetails()) {
       this.vatTotal = this.vatTotal!.plus(vam.getCalculated());
     }
   }
