@@ -26,6 +26,7 @@ export { LegalOrganisation } from './model/legal-organisation.js';
 export { Invoice } from './model/invoice.js';
 export { CalculatedInvoice } from './model/calculated-invoice.js';
 export { VATAmount } from './model/vat-amount.js';
+export { ReferencedDocument } from './model/referenced-document.js';
 
 // Import
 export { ZUGFeRDInvoiceImporter } from './import/invoice-importer.js';
