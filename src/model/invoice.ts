@@ -153,7 +153,10 @@ export class Invoice implements ExportableTransaction {
     return this;
   }
 
-  setCreditNote(): this {
+  setCreditNote(number?: string): this {
+    if (number !== undefined) {
+      this.setInvoiceReferencedDocumentID(number);
+    }
     this.documentCode = DocumentCodeType.CREDITNOTE;
     return this;
   }
