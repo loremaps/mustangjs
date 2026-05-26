@@ -3,7 +3,10 @@ export { Big, ZERO, ONE, TEN, decimal } from './decimal.js';
 export type { Decimal } from './decimal.js';
 
 // Constants
-export { TaxCategoryCode } from './constants/tax-category-code.js';
+export {
+  TaxCategoryCode,
+  CATEGORY_CODES_WITH_EXEMPTION_REASON,
+} from './constants/tax-category-code.js';
 export { DocumentCodeType } from './constants/document-code-type.js';
 export { Profile, Profiles } from './constants/profiles.js';
 

@@ -3,10 +3,12 @@ import type { ExportableTransaction } from '../interfaces/exportable-transaction
 import type { ExportableItem } from '../interfaces/exportable-item.js';
 import type { AllowanceCharge } from '../interfaces/allowance-charge.js';
 import { Profile, Profiles } from '../constants/profiles.js';
-import { TaxCategoryCode } from '../constants/tax-category-code.js';
+import {
+  TaxCategoryCode,
+  CATEGORY_CODES_WITH_EXEMPTION_REASON,
+} from '../constants/tax-category-code.js';
 import { TransactionCalculator } from '../calc/transaction-calculator.js';
 import { LineCalculator } from '../calc/line-calculator.js';
-import { VATAmount } from '../model/vat-amount.js';
 import { TradeParty } from '../model/trade-party.js';
 import {
   nDigitFormat,
@@ -357,7 +359,6 @@ export class ZUGFeRD2PullProvider {
     if (!isMinimum) {
       for (const va of vatAmounts) {
         const catCode = va.getCategoryCode();
-        const CATEGORY_CODES_WITH_EXEMPTION_REASON = ['K', 'AE', 'E', 'G', 'O'];
         const displayExemptionReason = CATEGORY_CODES_WITH_EXEMPTION_REASON.includes(catCode);
         let exemptionReasonXML = '';
         if (displayExemptionReason && va.getVatExemptionReasonText() != null) {

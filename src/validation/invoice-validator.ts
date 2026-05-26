@@ -318,6 +318,17 @@ export class InvoiceValidator {
             });
           }
           break;
+
+        case 'G': // Free export
+          if (vatPercent != null && !vatPercent.eq(ZERO)) {
+            items.push({
+              severity: Severity.ERROR,
+              ruleId: 'BR-G',
+              message: 'Free export items must have a VAT rate of zero.',
+              location,
+            });
+          }
+          break;
       }
     }
 
@@ -343,6 +354,15 @@ export class InvoiceValidator {
         ruleId: 'BR-AE',
         message:
           'VAT breakdown for reverse charge (AE) must have a tax exemption reason.',
+      });
+    }
+
+    if (categoriesUsed.has('G') && !categoryHasExemptionReason.get('G')) {
+      items.push({
+        severity: Severity.ERROR,
+        ruleId: 'BR-G',
+        message:
+          'VAT breakdown for free export (G) must have a tax exemption reason.',
       });
     }
   }
