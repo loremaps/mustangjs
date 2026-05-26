@@ -10,6 +10,7 @@ import { Contact } from '../model/contact.js';
 import { BankDetails } from '../model/bank-details.js';
 import { Charge } from '../model/charge.js';
 import { Allowance } from '../model/allowance.js';
+import { ReferencedDocument } from '../model/referenced-document.js';
 import { Profiles, type Profile } from '../constants/profiles.js';
 
 type EStandard = 'cii' | 'ubl' | 'ubl_creditnote';
@@ -32,6 +33,28 @@ export class ZUGFeRDInvoiceImporter {
     this.doc = new DOMParser().parseFromString(xml, 'text/xml');
     this.standard = null;
     return this;
+  }
+
+  /**
+   * Returns true when the loaded XML looks like a parseable CII/UBL invoice.
+   * Mirrors Java ZUGFeRDInvoiceImporter.canParse(): valid XML root, and either
+   * SpecifiedExchangedDocumentContext (ZF1) or ExchangedDocumentContext (ZF2/UBL).
+   */
+  canParse(): boolean {
+    if (!this.doc || !this.doc.documentElement) return false;
+    try {
+      const rootName = this.str('local-name(/*)');
+      if (!rootName) return false;
+      const hasZF2Context = this.node(
+        "//*[local-name()='ExchangedDocumentContext']",
+      ) != null;
+      const hasZF1Context = this.node(
+        "//*[local-name()='SpecifiedExchangedDocumentContext']",
+      ) != null;
+      return hasZF2Context || hasZF1Context;
+    } catch {
+      return false;
+    }
   }
 
   getStandard(): EStandard {
@@ -341,6 +364,18 @@ export class ZUGFeRDInvoiceImporter {
     );
     if (lineId) item.setId(lineId);
 
+    const parentLineId = this.str(
+      "./*[local-name()='AssociatedDocumentLineDocument']/*[local-name()='ParentLineID']",
+      lineNode,
+    );
+    if (parentLineId) item.setParentLineID(parentLineId);
+
+    const lineStatusReasonCode = this.str(
+      "./*[local-name()='AssociatedDocumentLineDocument']/*[local-name()='LineStatusReasonCode']",
+      lineNode,
+    );
+    if (lineStatusReasonCode) item.setLineStatusReasonCode(lineStatusReasonCode);
+
     // Item-level allowances and charges
     const acNodes = this.nodes(
       "./*[local-name()='SpecifiedLineTradeSettlement']/*[local-name()='SpecifiedTradeAllowanceCharge']",
@@ -486,6 +521,28 @@ export class ZUGFeRDInvoiceImporter {
       "//*[local-name()='ApplicableHeaderTradeAgreement']/*[local-name()='SellerOrderReferencedDocument']/*[local-name()='IssuerAssignedID']",
     );
     if (sellerOrder) invoice.setSellerOrderReferencedDocumentID(sellerOrder);
+
+    // BT-18 Invoiced object identifier (TypeCode 130)
+    const additionalRefNodes = this.nodes(
+      "//*[local-name()='ApplicableHeaderTradeAgreement']/*[local-name()='AdditionalReferencedDocument']",
+    );
+    for (const refNode of additionalRefNodes) {
+      const typeCode = this.str("./*[local-name()='TypeCode']", refNode);
+      if (typeCode !== '130') continue;
+      const id = this.str("./*[local-name()='IssuerAssignedID']", refNode);
+      if (!id) continue;
+      const doc = new ReferencedDocument(id);
+      doc.setTypeCode('130');
+      const refTypeCode = this.str("./*[local-name()='ReferenceTypeCode']", refNode);
+      if (refTypeCode) doc.setReferenceTypeCode(refTypeCode);
+      const issueDateStr = this.str(
+        "./*[local-name()='FormattedIssueDateTime']/*[local-name()='DateTimeString']",
+        refNode,
+      );
+      if (issueDateStr) doc.setFormattedIssueDateTime(this.parseDate(issueDateStr));
+      invoice.setObjectIdentifierReferencedDocument(doc);
+      break;
+    }
   }
 
   private extractCalculatedAmounts(invoice: Invoice): void {

@@ -82,7 +82,16 @@ export class ZUGFeRD2PullProvider {
 
     // ExchangedDocumentContext
     xml += '<rsm:ExchangedDocumentContext>';
-    if (isXRechnung) {
+    const testIndicator = trans.getTestIndicator?.() ?? false;
+    if (testIndicator && isExtended) {
+      xml += '<ram:TestIndicator><udt:Indicator>true</udt:Indicator></ram:TestIndicator>';
+    }
+    const businessProcessId = trans.getBusinessProcessId?.() ?? null;
+    if (businessProcessId != null && businessProcessId.trim().length > 0) {
+      xml += '<ram:BusinessProcessSpecifiedDocumentContextParameter>';
+      xml += `<ram:ID>${encodeXML(businessProcessId)}</ram:ID>`;
+      xml += '</ram:BusinessProcessSpecifiedDocumentContextParameter>';
+    } else if (isXRechnung) {
       xml += '<ram:BusinessProcessSpecifiedDocumentContextParameter>';
       xml += '<ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID>';
       xml += '</ram:BusinessProcessSpecifiedDocumentContextParameter>';
@@ -116,6 +125,16 @@ export class ZUGFeRD2PullProvider {
         xml += '<ram:IncludedSupplyChainTradeLineItem>';
         xml += '<ram:AssociatedDocumentLineDocument>';
         xml += `<ram:LineID>${currentItem.getId() ?? lineID}</ram:LineID>`;
+        if (isExtended) {
+          const parentLineID = (currentItem as { getParentLineID?(): string | null }).getParentLineID?.();
+          if (parentLineID != null) {
+            xml += `<ram:ParentLineID>${encodeXML(parentLineID)}</ram:ParentLineID>`;
+          }
+          const lineStatusReasonCode = (currentItem as { getLineStatusReasonCode?(): string | null }).getLineStatusReasonCode?.();
+          if (lineStatusReasonCode != null) {
+            xml += `<ram:LineStatusReasonCode>${encodeXML(lineStatusReasonCode)}</ram:LineStatusReasonCode>`;
+          }
+        }
         xml += '</ram:AssociatedDocumentLineDocument>';
 
         // Product
@@ -197,11 +216,11 @@ export class ZUGFeRD2PullProvider {
           if (taxExemptionReason != null) {
             xml += `<ram:ExemptionReason>${encodeXML(taxExemptionReason)}</ram:ExemptionReason>`;
           }
+          xml += `<ram:CategoryCode>${product.getTaxCategoryCode()}</ram:CategoryCode>`;
           const taxExemptionReasonCode = product.getTaxExemptionReasonCode();
           if (taxExemptionReasonCode != null) {
             xml += `<ram:ExemptionReasonCode>${taxExemptionReasonCode}</ram:ExemptionReasonCode>`;
           }
-          xml += `<ram:CategoryCode>${product.getTaxCategoryCode()}</ram:CategoryCode>`;
           const catCode = product.getTaxCategoryCode();
           if (catCode !== TaxCategoryCode.UNTAXEDSERVICE) {
             const vp = product.getVATPercent();
@@ -261,6 +280,21 @@ export class ZUGFeRD2PullProvider {
       xml += '<ram:ContractReferencedDocument>';
       xml += `<ram:IssuerAssignedID>${encodeXML(trans.getContractReferencedDocument()!)}</ram:IssuerAssignedID>`;
       xml += '</ram:ContractReferencedDocument>';
+    }
+    const objIdRef = trans.getObjectIdentifierReferencedDocument?.() ?? null;
+    if (objIdRef != null && objIdRef.getIssuerAssignedID() != null) {
+      xml += '<ram:AdditionalReferencedDocument>';
+      xml += `<ram:IssuerAssignedID>${encodeXML(objIdRef.getIssuerAssignedID()!)}</ram:IssuerAssignedID>`;
+      xml += '<ram:TypeCode>130</ram:TypeCode>';
+      const rtc = objIdRef.getReferenceTypeCode();
+      if (rtc != null && rtc.length > 0) {
+        xml += `<ram:ReferenceTypeCode>${encodeXML(rtc)}</ram:ReferenceTypeCode>`;
+      }
+      const issueDate = objIdRef.getFormattedIssueDateTime();
+      if (issueDate != null) {
+        xml += `<ram:FormattedIssueDateTime><qdt:DateTimeString format="102">${formatDate102(issueDate)}</qdt:DateTimeString></ram:FormattedIssueDateTime>`;
+      }
+      xml += '</ram:AdditionalReferencedDocument>';
     }
     xml += '</ram:ApplicableHeaderTradeAgreement>';
 

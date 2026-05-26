@@ -2,6 +2,7 @@ import type { Decimal } from '../decimal.js';
 import type { ExportableItem } from './exportable-item.js';
 import type { AllowanceCharge } from './allowance-charge.js';
 import type { TradeParty } from '../model/trade-party.js';
+import type { ReferencedDocument } from '../model/referenced-document.js';
 import { ZERO } from '../decimal.js';
 
 export interface ExportableTransaction {
@@ -29,6 +30,9 @@ export interface ExportableTransaction {
   getInvoiceReferencedDocumentID(): string | null;
   getDetailedDeliveryPeriodFrom(): Date | null;
   getDetailedDeliveryPeriodTo(): Date | null;
+  getTestIndicator?(): boolean;
+  getBusinessProcessId?(): string | null;
+  getObjectIdentifierReferencedDocument?(): ReferencedDocument | null;
 }
 
 export const ExportableTransactionDefaults = {
@@ -48,6 +52,15 @@ export const ExportableTransactionDefaults = {
     return null;
   },
   getVATDueDateTypeCode(): string | null {
+    return null;
+  },
+  getTestIndicator(): boolean {
+    return false;
+  },
+  getBusinessProcessId(): string | null {
+    return null;
+  },
+  getObjectIdentifierReferencedDocument(): ReferencedDocument | null {
     return null;
   },
 };

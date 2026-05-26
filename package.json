@@ -1,6 +1,6 @@
 {
   "name": "@aifind/mustangjs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript port of mustangproject - ZUGFeRD, Factur-X, XRechnung e-invoicing library",
   "type": "module",
   "main": "dist/src/index.js",

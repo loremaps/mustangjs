@@ -6,6 +6,7 @@ import { TradeParty } from './trade-party.js';
 import { Item } from './item.js';
 import { Charge } from './charge.js';
 import { Allowance } from './allowance.js';
+import { ReferencedDocument } from './referenced-document.js';
 import { DocumentCodeType } from '../constants/document-code-type.js';
 
 export class Invoice implements ExportableTransaction {
@@ -34,6 +35,9 @@ export class Invoice implements ExportableTransaction {
   protected vatDueDateTypeCode: string | null = null;
   protected deliveryAddress: TradeParty | null = null;
   protected payee: TradeParty | null = null;
+  protected testIndicator: boolean = false;
+  protected businessProcessId: string | null = null;
+  protected objectIdentifierReferencedDocument: ReferencedDocument | null = null;
 
   constructor() {}
 
@@ -169,6 +173,36 @@ export class Invoice implements ExportableTransaction {
     return this;
   }
 
+  setTestIndicator(value: boolean = true): this {
+    this.testIndicator = value;
+    return this;
+  }
+
+  setBusinessProcessId(id: string): this {
+    this.businessProcessId = id;
+    return this;
+  }
+
+  setObjectIdentifierReferencedDocument(
+    docOrId: ReferencedDocument | string,
+    referenceTypeCode?: string,
+    issueDate?: Date,
+  ): this {
+    if (docOrId instanceof ReferencedDocument) {
+      this.objectIdentifierReferencedDocument = docOrId;
+    } else {
+      const dr = new ReferencedDocument(docOrId);
+      if (referenceTypeCode !== undefined) {
+        dr.setReferenceTypeCode(referenceTypeCode);
+      }
+      if (issueDate !== undefined) {
+        dr.setFormattedIssueDateTime(issueDate);
+      }
+      this.objectIdentifierReferencedDocument = dr;
+    }
+    return this;
+  }
+
   // Interface implementation
 
   getDocumentName(): string | null {
@@ -281,6 +315,18 @@ export class Invoice implements ExportableTransaction {
     return this.payee;
   }
 
+  getTestIndicator(): boolean {
+    return this.testIndicator;
+  }
+
+  getBusinessProcessId(): string | null {
+    return this.businessProcessId;
+  }
+
+  getObjectIdentifierReferencedDocument(): ReferencedDocument | null {
+    return this.objectIdentifierReferencedDocument;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected static _populateFromJSON(invoice: Invoice, data: any): void {
     if (data.number) invoice.setNumber(data.number);
@@ -314,6 +360,18 @@ export class Invoice implements ExportableTransaction {
       for (const a of data.zfallowances) {
         invoice.addAllowance(Allowance.fromJSON(a));
       }
+    }
+    if (data.testIndicator) invoice.setTestIndicator(true);
+    if (data.businessProcessId) invoice.setBusinessProcessId(data.businessProcessId);
+    if (data.objectIdentifierReferencedDocument) {
+      const o = data.objectIdentifierReferencedDocument;
+      const dr = new ReferencedDocument(o.issuerAssignedID ?? undefined);
+      if (o.typeCode) dr.setTypeCode(o.typeCode);
+      if (o.referenceTypeCode) dr.setReferenceTypeCode(o.referenceTypeCode);
+      if (o.formattedIssueDateTime != null) {
+        dr.setFormattedIssueDateTime(Invoice._parseJSONDate(o.formattedIssueDateTime));
+      }
+      invoice.setObjectIdentifierReferencedDocument(dr);
     }
   }
 
