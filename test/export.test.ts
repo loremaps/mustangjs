@@ -437,3 +437,116 @@ describe('Export roundtrip', () => {
     expect(tc.getDuePayable().toString()).toBe('1');
   });
 });
+
+describe('DeliveryTypeCode (CII Extended)', () => {
+  function makeInvoice(): Invoice {
+    return createFXInvoice(
+      new TradeParty('Franz Müller', 'teststr.12', '55232', 'Entenhausen', 'DE'),
+    ).setDeliveryTypeCode('EXW');
+  }
+
+  it('exports DeliveryTypeCode in EXTENDED profile and round-trips on import', () => {
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('EXTENDED'));
+    zf2p.generateXML(makeInvoice());
+    const theXML = zf2p.getXML();
+
+    expect(theXML).toContain('<ram:DeliveryTypeCode>EXW</ram:DeliveryTypeCode>');
+    expect(xpathValue(theXML, 'DeliveryTypeCode')).toBe('EXW');
+
+    const zii = new ZUGFeRDInvoiceImporter(theXML);
+    const ci = new CalculatedInvoice();
+    zii.extractInto(ci);
+    expect(ci.getDeliveryTypeCode()).toBe('EXW');
+  });
+
+  it('omits DeliveryTypeCode outside the EXTENDED profile', () => {
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('EN16931'));
+    zf2p.generateXML(makeInvoice());
+    const theXML = zf2p.getXML();
+
+    expect(xpathCount(theXML, 'DeliveryTypeCode')).toBe(0);
+    expect(xpathCount(theXML, 'ApplicableTradeDeliveryTerms')).toBe(0);
+  });
+});
+
+describe('Item allowance/charge BasisAmount (BT-137/142)', () => {
+  function btSender(): TradeParty {
+    return new TradeParty(
+      'Sender GmbH',
+      'Hauptstr. 1',
+      '10115',
+      'Berlin',
+      'DE',
+    ).addVATID('DE123456789');
+  }
+  function btRecipient(): TradeParty {
+    return new TradeParty(
+      'Recipient GmbH',
+      'Nebenstr. 2',
+      '10116',
+      'Berlin',
+      'DE',
+    ).addVATID('DE987654321');
+  }
+  function xpathString(xmlStr: string, expr: string): string {
+    const doc = new DOMParser().parseFromString(xmlStr, 'text/xml');
+    const result = xpath.select(`string(${expr})`, doc);
+    return typeof result === 'string' ? result : '';
+  }
+
+  it('testLineLevelAllowanceBasisAmountIsLineSubtotal', () => {
+    // BT-137: price=128.49 per 100, qty=50, basisQty=100, 10% item allowance, Extended.
+    // line subtotal = (128.49/100)*50 = 64.245 -> 64.25; ActualAmount = 6.4245 -> 6.42
+    const product = new Product('Testartikel', '', 'LTR', new Big(0));
+    const item = new Item(product, new Big('128.49'), new Big('50'));
+    item.setBasisQuantity(new Big('100'));
+    item.addAllowance(new Allowance().setPercent(new Big(10)).setTaxPercent(new Big(0)));
+
+    const i = new Invoice()
+      .setNumber('BT137-ALLOWANCE')
+      .setIssueDate(new Date())
+      .setDueDate(new Date())
+      .setSender(btSender())
+      .setRecipient(btRecipient())
+      .addItem(item);
+
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('Extended'));
+    zf2p.generateXML(i);
+    const theXML = zf2p.getXML();
+
+    const allowance =
+      "//*[local-name()='SpecifiedTradeAllowanceCharge'][*[local-name()='ChargeIndicator']/*[local-name()='Indicator']='false']";
+    expect(xpathString(theXML, `${allowance}/*[local-name()='BasisAmount']`)).toBe('64.25');
+    expect(xpathString(theXML, `${allowance}/*[local-name()='ActualAmount']`)).toBe('6.42');
+  });
+
+  it('testLineLevelChargeBasisAmountIsLineSubtotal', () => {
+    // BT-142: price=200 per 4, qty=10, basisQty=4, 5% item charge, Extended.
+    // line subtotal = (200/4)*10 = 500.00; ActualAmount = 25.00
+    const product = new Product('Testartikel', '', 'H87', new Big(0));
+    const item = new Item(product, new Big('200.00'), new Big('10'));
+    item.setBasisQuantity(new Big('4'));
+    item.addCharge(new Charge().setPercent(new Big(5)).setTaxPercent(new Big(0)));
+
+    const i = new Invoice()
+      .setNumber('BT142-CHARGE')
+      .setIssueDate(new Date())
+      .setDueDate(new Date())
+      .setSender(btSender())
+      .setRecipient(btRecipient())
+      .addItem(item);
+
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('Extended'));
+    zf2p.generateXML(i);
+    const theXML = zf2p.getXML();
+
+    const charge =
+      "//*[local-name()='SpecifiedTradeAllowanceCharge'][*[local-name()='ChargeIndicator']/*[local-name()='Indicator']='true']";
+    expect(xpathString(theXML, `${charge}/*[local-name()='BasisAmount']`)).toBe('500.00');
+    expect(xpathString(theXML, `${charge}/*[local-name()='ActualAmount']`)).toBe('25.00');
+  });
+});

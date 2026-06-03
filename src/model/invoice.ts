@@ -17,6 +17,7 @@ export class Invoice implements ExportableTransaction {
   protected issueDate: Date | null = null;
   protected dueDate: Date | null = null;
   protected deliveryDate: Date | null = null;
+  protected deliveryTypeCode: string | null = null;
   protected sender: TradeParty | null = null;
   protected recipient: TradeParty | null = null;
   protected items: ExportableItem[] = [];
@@ -73,6 +74,11 @@ export class Invoice implements ExportableTransaction {
 
   setDeliveryDate(date: Date): this {
     this.deliveryDate = date;
+    return this;
+  }
+
+  setDeliveryTypeCode(code: string): this {
+    this.deliveryTypeCode = code;
     return this;
   }
 
@@ -236,6 +242,10 @@ export class Invoice implements ExportableTransaction {
     return this.deliveryDate;
   }
 
+  getDeliveryTypeCode(): string | null {
+    return this.deliveryTypeCode;
+  }
+
   getSender(): TradeParty | null {
     return this.sender;
   }
@@ -339,6 +349,7 @@ export class Invoice implements ExportableTransaction {
     if (data.issueDate != null) invoice.setIssueDate(Invoice._parseJSONDate(data.issueDate));
     if (data.dueDate != null) invoice.setDueDate(Invoice._parseJSONDate(data.dueDate));
     if (data.deliveryDate != null) invoice.setDeliveryDate(Invoice._parseJSONDate(data.deliveryDate));
+    if (data.deliveryTypeCode != null) invoice.setDeliveryTypeCode(data.deliveryTypeCode);
     if (data.sender) invoice.setSender(TradeParty.fromJSON(data.sender));
     if (data.recipient) invoice.setRecipient(TradeParty.fromJSON(data.recipient));
     if (data.totalPrepaidAmount != null) invoice.setTotalPrepaidAmount(new Big(data.totalPrepaidAmount));

@@ -522,6 +522,11 @@ export class ZUGFeRDInvoiceImporter {
     );
     if (sellerOrder) invoice.setSellerOrderReferencedDocumentID(sellerOrder);
 
+    const deliveryTypeCode = this.str(
+      "//*[local-name()='ApplicableHeaderTradeAgreement']/*[local-name()='ApplicableTradeDeliveryTerms']/*[local-name()='DeliveryTypeCode']",
+    );
+    if (deliveryTypeCode) invoice.setDeliveryTypeCode(deliveryTypeCode);
+
     // BT-18 Invoiced object identifier (TypeCode 130)
     const additionalRefNodes = this.nodes(
       "//*[local-name()='ApplicableHeaderTradeAgreement']/*[local-name()='AdditionalReferencedDocument']",
