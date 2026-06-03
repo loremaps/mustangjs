@@ -1,6 +1,6 @@
-import { Big, ZERO, type Decimal } from '../decimal.js';
+import { Big, ZERO, ONE, type Decimal } from '../decimal.js';
 import type { ExportableTransaction } from '../interfaces/exportable-transaction.js';
-import type { ExportableItem } from '../interfaces/exportable-item.js';
+import type { ValueProvider } from '../interfaces/value-provider.js';
 import type { AllowanceCharge } from '../interfaces/allowance-charge.js';
 import { Profile, Profiles } from '../constants/profiles.js';
 import {
@@ -124,6 +124,21 @@ export class ZUGFeRD2PullProvider {
       for (const currentItem of trans.getZFItems()) {
         lineID++;
         const lc = new LineCalculator(currentItem);
+        // Value providers mirroring LineCalculator: perUnitProvider for product-level
+        // allowances/charges (per-unit price), itemBasisProvider for item-total level
+        // (price/basisQty, so percentage BasisAmount = line subtotal).
+        const lineBasisQuantity = currentItem.getBasisQuantity().eq(ZERO)
+          ? ONE.round(4)
+          : currentItem.getBasisQuantity();
+        const perUnitProvider: ValueProvider = {
+          getValue: () => currentItem.getPrice(),
+          getQuantity: () => ONE,
+        };
+        const itemBasisProvider: ValueProvider = {
+          getValue: () =>
+            currentItem.getPrice().div(lineBasisQuantity).round(18, Big.roundHalfUp),
+          getQuantity: () => currentItem.getQuantity(),
+        };
         xml += '<ram:IncludedSupplyChainTradeLineItem>';
         xml += '<ram:AssociatedDocumentLineDocument>';
         xml += `<ram:LineID>${currentItem.getId() ?? lineID}</ram:LineID>`;
@@ -186,12 +201,12 @@ export class ZUGFeRD2PullProvider {
           xml += `<ram:BasisQuantity unitCode="${encodeXML(product?.getUnit() ?? 'C62')}">${quantityFormat(currentItem.getBasisQuantity())}</ram:BasisQuantity>`;
           if (product?.getAllowances() != null) {
             for (const a of product!.getAllowances()!) {
-              xml += this.getAllowanceChargeStr(a, currentItem);
+              xml += this.getAllowanceChargeStr(a, perUnitProvider);
             }
           }
           if (product?.getCharges() != null) {
             for (const c of product!.getCharges()!) {
-              xml += this.getAllowanceChargeStr(c, currentItem);
+              xml += this.getAllowanceChargeStr(c, perUnitProvider);
             }
           }
           xml += '</ram:GrossPriceProductTradePrice>';
@@ -234,12 +249,12 @@ export class ZUGFeRD2PullProvider {
         // Item-total level allowances/charges
         if (currentItem.getItemAllowances() != null) {
           for (const a of currentItem.getItemAllowances()!) {
-            xml += this.getItemTotalAllowanceChargeStr(a, currentItem);
+            xml += this.getItemTotalAllowanceChargeStr(a, itemBasisProvider);
           }
         }
         if (currentItem.getItemCharges() != null) {
           for (const c of currentItem.getItemCharges()!) {
-            xml += this.getItemTotalAllowanceChargeStr(c, currentItem);
+            xml += this.getItemTotalAllowanceChargeStr(c, itemBasisProvider);
           }
         }
 
@@ -633,29 +648,55 @@ export class ZUGFeRD2PullProvider {
     return xml;
   }
 
-  private getAllowanceChargeStr(ac: AllowanceCharge, item: ExportableItem): string {
+  private getAllowanceChargeStr(ac: AllowanceCharge, item: ValueProvider): string {
+    const profileName = this.profile.getName();
+    const isExtended = profileName === 'EXTENDED';
+    const showReason =
+      isExtended || profileName === 'XRECHNUNG' || profileName === 'EN16931';
+
+    let percentage = '';
+    if (ac.getPercent() != null && isExtended) {
+      percentage += `<ram:CalculationPercent>${vatFormat(ac.getPercent()!)}</ram:CalculationPercent>`;
+      percentage += `<ram:BasisAmount>${currencyFormat(item.getValue())}</ram:BasisAmount>`;
+    }
+
     let xml = '<ram:AppliedTradeAllowanceCharge>';
     xml += `<ram:ChargeIndicator><udt:Indicator>${ac.isCharge()}</udt:Indicator></ram:ChargeIndicator>`;
+    xml += percentage;
     xml += `<ram:ActualAmount>${priceFormat(ac.getTotalAmount(item))}</ram:ActualAmount>`;
-    if (ac.getReason() != null) {
-      xml += `<ram:Reason>${encodeXML(ac.getReason()!)}</ram:Reason>`;
-    }
     if (ac.getReasonCode() != null) {
       xml += `<ram:ReasonCode>${ac.getReasonCode()}</ram:ReasonCode>`;
+    }
+    if (ac.getReason() != null && showReason) {
+      xml += `<ram:Reason>${encodeXML(ac.getReason()!)}</ram:Reason>`;
     }
     xml += '</ram:AppliedTradeAllowanceCharge>';
     return xml;
   }
 
-  private getItemTotalAllowanceChargeStr(ac: AllowanceCharge, item: ExportableItem): string {
+  private getItemTotalAllowanceChargeStr(ac: AllowanceCharge, item: ValueProvider): string {
+    const profileName = this.profile.getName();
+    const isExtended = profileName === 'EXTENDED';
+    const showReason =
+      isExtended || profileName === 'XRECHNUNG' || profileName === 'EN16931';
+
+    let percentage = '';
+    if (ac.getPercent() != null && isExtended) {
+      percentage += `<ram:CalculationPercent>${vatFormat(ac.getPercent()!)}</ram:CalculationPercent>`;
+      // BT-137/BT-142: BasisAmount = the value the percentage is applied to =
+      // line subtotal (price/basisQty)*qty
+      percentage += `<ram:BasisAmount>${currencyFormat(item.getValue().times(item.getQuantity()))}</ram:BasisAmount>`;
+    }
+
     let xml = '<ram:SpecifiedTradeAllowanceCharge>';
     xml += `<ram:ChargeIndicator><udt:Indicator>${ac.isCharge()}</udt:Indicator></ram:ChargeIndicator>`;
+    xml += percentage;
     xml += `<ram:ActualAmount>${currencyFormat(ac.getTotalAmount(item))}</ram:ActualAmount>`;
-    if (ac.getReason() != null) {
-      xml += `<ram:Reason>${encodeXML(ac.getReason()!)}</ram:Reason>`;
-    }
-    if (ac.getReasonCode() != null) {
+    if (ac.getReasonCode() != null && showReason) {
       xml += `<ram:ReasonCode>${ac.getReasonCode()}</ram:ReasonCode>`;
+    }
+    if (ac.getReason() != null && showReason) {
+      xml += `<ram:Reason>${encodeXML(ac.getReason()!)}</ram:Reason>`;
     }
     xml += '</ram:SpecifiedTradeAllowanceCharge>';
     return xml;

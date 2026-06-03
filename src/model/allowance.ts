@@ -15,10 +15,11 @@ export class Allowance extends Charge {
     if (this.totalAmount != null) {
       return this.totalAmount;
     } else if (this.percent != null) {
-      // Allowance uses exact division (no rounding spec)
+      // Divide with 18 decimal precision, HALF_UP (matches Charge and Java #1043)
+      const percentFraction = this.percent.div(new Big(100)).round(18, Big.roundHalfUp);
       const singlePrice = currentItem
         .getValue()
-        .times(new Big(1).minus(this.percent.div(new Big(100))));
+        .times(new Big(1).minus(percentFraction));
       const singlePriceDiff = currentItem.getValue().minus(singlePrice);
       return singlePriceDiff.times(currentItem.getQuantity());
     } else {

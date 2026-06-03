@@ -313,4 +313,49 @@ describe('CalculationTest', () => {
     const calculator = currentItem.getCalculation();
     assertDecimalEquals(32.74, calculator.getItemTotalNetAmount());
   });
+
+  it('testPercentProductAllowanceNotMultipliedByQuantity', () => {
+    // 10% product discount on price=100, qty=5 → net price 90, line total 5*90 = 450
+    const product = new Product('Test', '', 'H87', ZERO);
+    product.addAllowance(new Allowance().setPercent(new Big(10)));
+    const item = new Item(product, new Big('100.00'), new Big('5'));
+
+    const lc = item.getCalculation();
+    assertDecimalEquals('450', lc.getItemTotalNetAmount());
+    assertDecimalEquals('90', lc.getPrice());
+  });
+
+  it('testPercentItemAllowanceWithBasisQuantity', () => {
+    // price=128.49 per 100, qty=50, 10% item allowance
+    // line before allowance = 50*128.49/100 = 64.245, allowance 6.42, total 57.83
+    const product = new Product('Test', '', 'LTR', ZERO);
+    const item = new Item(product, new Big('128.49'), new Big('50'));
+    item.setBasisQuantity(new Big('100'));
+    item.addAllowance(new Allowance().setPercent(new Big(10)));
+
+    const lc = item.getCalculation();
+    assertDecimalEquals('57.83', lc.getItemTotalNetAmount());
+  });
+
+  it('testPercentProductAllowanceWithBasisQuantity', () => {
+    // 10% product discount, price=100 per 10, qty=50 → net price 90, line total 50*90/10 = 450
+    const product = new Product('Test', '', 'H87', ZERO);
+    product.addAllowance(new Allowance().setPercent(new Big(10)));
+    const item = new Item(product, new Big('100.00'), new Big('50'));
+    item.setBasisQuantity(new Big('10'));
+
+    const lc = item.getCalculation();
+    assertDecimalEquals('450', lc.getItemTotalNetAmount());
+  });
+
+  it('testPercentItemChargeWithBasisQuantity', () => {
+    // item-level 10% charge with basisQuantity: line before charge = 50*100/100 = 50, charge 5, total 55
+    const product = new Product('Test', '', 'LTR', ZERO);
+    const item = new Item(product, new Big('100.00'), new Big('50'));
+    item.setBasisQuantity(new Big('100'));
+    item.addCharge(new Charge().setPercent(new Big(10)));
+
+    const lc = item.getCalculation();
+    assertDecimalEquals('55', lc.getItemTotalNetAmount());
+  });
 });

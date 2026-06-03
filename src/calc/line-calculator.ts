@@ -1,5 +1,6 @@
 import { Big, ZERO, ONE, type Decimal } from '../decimal.js';
 import type { ExportableItem } from '../interfaces/exportable-item.js';
+import type { ValueProvider } from '../interfaces/value-provider.js';
 
 /**
  * Calculates line-level totals within an item line (quantity * price).
@@ -17,9 +18,27 @@ export class LineCalculator {
   protected allowanceItemTotal: Decimal = ZERO;
 
   constructor(currentItem: ExportableItem) {
+    // Compute basisQuantity first so it can be used for item-level allowance/charge
+    // context (avoid division by zero).
+    let basisQuantity: Decimal;
+    if (currentItem.getBasisQuantity().eq(ZERO)) {
+      basisQuantity = ONE.round(4);
+    } else {
+      basisQuantity = currentItem.getBasisQuantity();
+    }
+
+    // Provider for item-level: getValue() returns price/basisQty so percentage
+    // allowances compute against the actual line amount (qty * price / basisQty),
+    // not the raw (qty * price). No effect on absolute amounts.
+    const itemBasisProvider: ValueProvider = {
+      getValue: () =>
+        currentItem.getPrice().div(basisQuantity).round(18, Big.roundHalfUp),
+      getQuantity: () => currentItem.getQuantity(),
+    };
+
     if (currentItem.getItemAllowances() != null) {
       for (const allowance of currentItem.getItemAllowances()!) {
-        const singleAllowance = allowance.getTotalAmount(currentItem);
+        const singleAllowance = allowance.getTotalAmount(itemBasisProvider);
         this.addItemAllowance(singleAllowance);
         this.addAllowanceItemTotal(singleAllowance);
       }
@@ -27,7 +46,7 @@ export class LineCalculator {
 
     if (currentItem.getItemCharges() != null) {
       for (const charge of currentItem.getItemCharges()!) {
-        const singleCharge = charge.getTotalAmount(currentItem);
+        const singleCharge = charge.getTotalAmount(itemBasisProvider);
         this.addItemCharge(singleCharge);
         this.subtractAllowanceItemTotal(singleCharge);
       }
@@ -36,7 +55,7 @@ export class LineCalculator {
     if (currentItem.getItemTotalAllowances() != null) {
       for (const itemTotalAllowance of currentItem.getItemTotalAllowances()!) {
         this.addAllowanceItemTotal(
-          itemTotalAllowance.getTotalAmount(currentItem),
+          itemTotalAllowance.getTotalAmount(itemBasisProvider),
         );
       }
     }
@@ -58,30 +77,30 @@ export class LineCalculator {
     this.price = currentItem.getPrice();
     this.priceGross = this.price;
 
+    // Provider for product-level: getQuantity() returns ONE because product
+    // allowances adjust the per-unit price, not the line total.
+    // No effect on absolute amounts.
+    const perUnitProvider: ValueProvider = {
+      getValue: () => currentItem.getPrice(),
+      getQuantity: () => ONE,
+    };
+
     // Apply product-level allowances and charges to price
     let delta: Decimal = ZERO;
     if (currentItem.getProduct() != null) {
       if (currentItem.getProduct()!.getAllowances() != null) {
         for (const ccaf of currentItem.getProduct()!.getAllowances()!) {
-          delta = delta.minus(ccaf.getTotalAmount(currentItem));
+          delta = delta.minus(ccaf.getTotalAmount(perUnitProvider));
         }
       }
       if (currentItem.getProduct()!.getCharges() != null) {
         for (const ccaf of currentItem.getProduct()!.getCharges()!) {
-          delta = delta.plus(ccaf.getTotalAmount(currentItem));
+          delta = delta.plus(ccaf.getTotalAmount(perUnitProvider));
         }
       }
     }
 
     this.price = this.price.plus(delta);
-
-    // Handle basis quantity (avoid division by zero)
-    let basisQuantity: Decimal;
-    if (currentItem.getBasisQuantity().eq(ZERO)) {
-      basisQuantity = ONE.round(4);
-    } else {
-      basisQuantity = currentItem.getBasisQuantity();
-    }
 
     // Calculate itemTotalNetAmount:
     // quantity * price / basisQuantity + lineCharge - lineAllowance - allowanceItemTotal(rounded to 2dp)
