@@ -283,6 +283,11 @@ export class ZUGFeRD2PullProvider {
       xml += this.getTradePartyAsXML(trans.getRecipient()! , false, false);
       xml += '</ram:BuyerTradeParty>';
     }
+    if (isExtended && trans.getDeliveryTypeCode() != null) {
+      xml += '<ram:ApplicableTradeDeliveryTerms>';
+      xml += `<ram:DeliveryTypeCode>${encodeXML(trans.getDeliveryTypeCode()!)}</ram:DeliveryTypeCode>`;
+      xml += '</ram:ApplicableTradeDeliveryTerms>';
+    }
     if (trans.getSellerOrderReferencedDocumentID() != null) {
       xml += '<ram:SellerOrderReferencedDocument>';
       xml += `<ram:IssuerAssignedID>${encodeXML(trans.getSellerOrderReferencedDocumentID()!)}</ram:IssuerAssignedID>`;

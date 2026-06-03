@@ -12,6 +12,7 @@ export interface ExportableTransaction {
   getIssueDate(): Date | null;
   getDueDate(): Date | null;
   getDeliveryDate(): Date | null;
+  getDeliveryTypeCode(): string | null;
   getCurrency(): string;
   getSender(): TradeParty | null;
   getRecipient(): TradeParty | null;

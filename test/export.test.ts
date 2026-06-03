@@ -438,6 +438,39 @@ describe('Export roundtrip', () => {
   });
 });
 
+describe('DeliveryTypeCode (CII Extended)', () => {
+  function makeInvoice(): Invoice {
+    return createFXInvoice(
+      new TradeParty('Franz Müller', 'teststr.12', '55232', 'Entenhausen', 'DE'),
+    ).setDeliveryTypeCode('EXW');
+  }
+
+  it('exports DeliveryTypeCode in EXTENDED profile and round-trips on import', () => {
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('EXTENDED'));
+    zf2p.generateXML(makeInvoice());
+    const theXML = zf2p.getXML();
+
+    expect(theXML).toContain('<ram:DeliveryTypeCode>EXW</ram:DeliveryTypeCode>');
+    expect(xpathValue(theXML, 'DeliveryTypeCode')).toBe('EXW');
+
+    const zii = new ZUGFeRDInvoiceImporter(theXML);
+    const ci = new CalculatedInvoice();
+    zii.extractInto(ci);
+    expect(ci.getDeliveryTypeCode()).toBe('EXW');
+  });
+
+  it('omits DeliveryTypeCode outside the EXTENDED profile', () => {
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('EN16931'));
+    zf2p.generateXML(makeInvoice());
+    const theXML = zf2p.getXML();
+
+    expect(xpathCount(theXML, 'DeliveryTypeCode')).toBe(0);
+    expect(xpathCount(theXML, 'ApplicableTradeDeliveryTerms')).toBe(0);
+  });
+});
+
 describe('Item allowance/charge BasisAmount (BT-137/142)', () => {
   function btSender(): TradeParty {
     return new TradeParty(
