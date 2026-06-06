@@ -1,4 +1,4 @@
-import { DOMParser } from '@xmldom/xmldom';
+import { DOMParser, Document } from '@xmldom/xmldom';
 import xpath from 'xpath';
 import { Big, ZERO, type Decimal } from '../decimal.js';
 import { Invoice } from '../model/invoice.js';
