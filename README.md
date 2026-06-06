@@ -5,14 +5,14 @@ TypeScript port of [mustangproject](https://www.mustangproject.org/) — a libra
 ## Install
 
 ```bash
-npm install mustangjs
+npm install @aifind/mustangjs
 ```
 
 ## Usage
 
 ```typescript
-import { Invoice, Item, Product, TradeParty, Big } from 'mustangjs';
-import { ZUGFeRD2PullProvider, Profiles } from 'mustangjs';
+import { Invoice, Item, Product, TradeParty, Big } from '@aifind/mustangjs';
+import { ZUGFeRD2PullProvider, Profiles } from '@aifind/mustangjs';
 
 const invoice = new Invoice()
   .setNumber('INV-001')
@@ -30,7 +30,7 @@ const xml = provider.getXML(); // CII XML string
 ### Parse
 
 ```typescript
-import { ZUGFeRDInvoiceImporter, CalculatedInvoice } from 'mustangjs';
+import { ZUGFeRDInvoiceImporter, CalculatedInvoice } from '@aifind/mustangjs';
 
 const importer = new ZUGFeRDInvoiceImporter(xmlString);
 const ci = new CalculatedInvoice();
@@ -43,7 +43,7 @@ console.log(ci.getGrandTotal().toString());
 Validate invoice XML against official EN16931 and XRechnung Schematron rules using `XMLValidator`. This runs the same XSLT-based business rules used by the Java [mustangproject](https://github.com/ZUGFeRD/mustangproject) validator — hundreds of rules maintained by the standards bodies (CEN, KoSIT).
 
 ```typescript
-import { XMLValidator } from 'mustangjs';
+import { XMLValidator } from '@aifind/mustangjs';
 
 const validator = new XMLValidator();
 const result = await validator.validate(xmlString);
@@ -57,7 +57,7 @@ result.hasRule('BR-02');   // check specific rule
 Format (CII/UBL) and profile are auto-detected from the XML. You can override:
 
 ```typescript
-import { XMLValidator, Profiles } from 'mustangjs';
+import { XMLValidator, Profiles } from '@aifind/mustangjs';
 
 const result = await validator.validate(xmlString, {
   profile: Profiles.getByName('XRECHNUNG'),  // override auto-detected profile
@@ -68,7 +68,7 @@ const result = await validator.validate(xmlString, {
 There is also a lower-level `InvoiceValidator` for programmatic rule checks on `Invoice` objects (without XML/Schematron):
 
 ```typescript
-import { InvoiceValidator, Profiles } from 'mustangjs';
+import { InvoiceValidator, Profiles } from '@aifind/mustangjs';
 
 const validator = new InvoiceValidator(Profiles.getByName('EN16931'));
 const result = validator.validate(invoice);
@@ -105,4 +105,4 @@ npm test
 
 ## License
 
-Apache-2.0
+This project is licensed under the [Apache License 2.0](LICENSE). Third-party runtime dependencies and bundled validation artifacts are under their own licenses. See [NOTICE](NOTICE).

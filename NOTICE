@@ -1,0 +1,13 @@
+@aifind/mustangjs
+Copyright 2026 Panagiotis Kapros
+
+This product includes software developed as a TypeScript port of mustangproject
+(https://github.com/ZUGFeRD/mustangproject), Copyright the mustangproject authors
+(Jochen Stärk and contributors), licensed under the Apache License, Version 2.0.
+
+This product depends at runtime on saxon-js (https://www.saxonica.com/saxon-js/),
+Copyright Saxonica Limited. saxon-js is distributed under Saxonica's own license
+(not the Apache License); see that package's LICENSE.txt for its terms.
+
+This product bundles pre-compiled Schematron stylesheets (*.sef.json) derived from the
+EN16931 and XRechnung validation artifacts maintained by CEN and KoSIT.

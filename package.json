@@ -13,15 +13,38 @@
   },
   "files": [
     "dist/src/",
-    "src/validation/schematron/"
+    "src/validation/schematron/",
+    "NOTICE"
   ],
+  "keywords": [
+    "zugferd",
+    "factur-x",
+    "xrechnung",
+    "en16931",
+    "e-invoice",
+    "einvoicing",
+    "cii",
+    "ubl",
+    "mustangproject"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loremaps/mustangjs.git"
+  },
+  "homepage": "https://github.com/loremaps/mustangjs#readme",
+  "bugs": {
+    "url": "https://github.com/loremaps/mustangjs/issues"
+  },
+  "author": "Panagiotis Kapros <kapros@gmail.com>",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "dependencies": {
-    "@xmldom/xmldom": "^0.8.11",
+    "@xmldom/xmldom": "^0.9.10",
     "big.js": "^6.2.2",
     "saxon-js": "^2.7.0",
     "xpath": "^0.0.34"
@@ -34,6 +57,9 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "Apache-2.0"
 }
