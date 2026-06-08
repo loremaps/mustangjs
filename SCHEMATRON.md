@@ -19,8 +19,8 @@ We bundle the final SEF files. The intermediate XSLT files come from the Java [m
 
 | Ruleset | Version | Source |
 |---------|---------|--------|
-| EN16931-CII | CEN EN16931 | `mustangproject/validator/.../xslt/en16931schematron/` |
-| EN16931-UBL | CEN EN16931 (incl. PEPPOL BIS) | `mustangproject/validator/.../xslt/en16931schematron/` |
+| EN16931-CII | EN16931 Schematron v1.3.14.2 (mustangproject `core-2.23.1`) | `mustangproject/validator/.../xslt/en16931schematron/` |
+| EN16931-UBL | EN16931 Schematron v1.3.14.2 (incl. PEPPOL BIS) | `mustangproject/validator/.../xslt/en16931schematron/` |
 | XRechnung-CII | XRechnung 3.0 | `mustangproject/validator/.../xslt/XR_30/` |
 | XRechnung-UBL | XRechnung 3.0 | `mustangproject/validator/.../xslt/XR_30/` |
 
@@ -58,26 +58,32 @@ cd /path/to/mustangjs
 npx xslt3 \
   -xsl:/path/to/mustangproject/validator/src/main/resources/xslt/en16931schematron/EN16931-CII-validation.xslt \
   -export:src/validation/schematron/EN16931-CII-validation.sef.json \
-  -nogo
+  -nogo -relocate:on
 
 # EN16931 UBL
 npx xslt3 \
   -xsl:/path/to/mustangproject/validator/src/main/resources/xslt/en16931schematron/EN16931-UBL-validation.xslt \
   -export:src/validation/schematron/EN16931-UBL-validation.sef.json \
-  -nogo
+  -nogo -relocate:on
 
 # XRechnung CII (update XR_30 to the new version directory)
 npx xslt3 \
   -xsl:/path/to/mustangproject/validator/src/main/resources/xslt/XR_30/XRechnung-CII-validation.xslt \
   -export:src/validation/schematron/XRechnung-CII-validation.sef.json \
-  -nogo
+  -nogo -relocate:on
 
 # XRechnung UBL
 npx xslt3 \
   -xsl:/path/to/mustangproject/validator/src/main/resources/xslt/XR_30/XRechnung-UBL-validation.xslt \
   -export:src/validation/schematron/XRechnung-UBL-validation.sef.json \
-  -nogo
+  -nogo -relocate:on
 ```
+
+> **Why `-relocate:on`?** Saxon otherwise bakes the absolute compile path into the
+> SEF's `baseUri`/`base` keys. `-relocate:on` removes the bulk of those (a few
+> residual `base` URIs pointing at the source location remain). Do **not** hand-edit
+> the generated `.sef.json` files — they carry an integrity checksum and saxon-js
+> rejects any modified file (`Invalid checksum in SEF`); always regenerate.
 
 ### Step 3: Verify
 
