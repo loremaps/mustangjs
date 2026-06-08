@@ -118,12 +118,16 @@ export class ZUGFeRDInvoiceImporter {
   }
 
   private str(xp: string, context?: Node): string {
-    const result = xpath.select(`string(${xp})`, context ?? this.doc!);
+    // `xpath`'s types reference lib.dom's `Node` (which extends EventTarget), but
+    // `@xmldom/xmldom`'s `Document` deliberately omits EventTarget, so it isn't
+    // assignable to xpath's `Node` parameter even though they are runtime-compatible.
+    // Cast through `unknown` to bridge the two libraries' DOM type definitions.
+    const result = xpath.select(`string(${xp})`, context ?? (this.doc! as unknown as Node));
     return typeof result === 'string' ? result.trim() : '';
   }
 
   private nodes(xp: string, context?: Node): Node[] {
-    const result = xpath.select(xp, context ?? this.doc!);
+    const result = xpath.select(xp, context ?? (this.doc! as unknown as Node));
     return Array.isArray(result) ? (result as Node[]) : [];
   }
 

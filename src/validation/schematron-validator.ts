@@ -116,14 +116,14 @@ export class SchematronValidator {
     // Count fired rules
     const firedRules = xpath.select(
       "//*[local-name()='fired-rule']",
-      doc,
+      doc as unknown as Node,
     );
     const rulesFired = Array.isArray(firedRules) ? firedRules.length : 0;
 
     // Extract failed assertions
     const failedAsserts = xpath.select(
       "//*[local-name()='failed-assert']",
-      doc,
+      doc as unknown as Node,
     );
     if (!Array.isArray(failedAsserts)) {
       return { items, rulesFired, rulesFailed: 0 };
