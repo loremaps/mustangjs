@@ -1,4 +1,4 @@
-import { DOMParser, Document } from '@xmldom/xmldom';
+import { DOMParser, ParseError, type Document } from '@xmldom/xmldom';
 import xpath from 'xpath';
 import { Big, ZERO, type Decimal } from '../decimal.js';
 import { Invoice } from '../model/invoice.js';
@@ -30,8 +30,14 @@ export class ZUGFeRDInvoiceImporter {
   }
 
   fromXML(xml: string): this {
-    this.doc = new DOMParser().parseFromString(xml, 'text/xml');
+    this.doc = null;
     this.standard = null;
+    try {
+      this.doc = new DOMParser({ onError: () => undefined }).parseFromString(xml, 'text/xml');
+    } catch (error) {
+      if (error instanceof ParseError) return this;
+      throw error;
+    }
     return this;
   }
 
