@@ -40,7 +40,7 @@ console.log(ci.getGrandTotal().toString());
 
 ### Validate
 
-Validate invoice XML against official EN16931 and XRechnung Schematron rules using `XMLValidator`. This runs the same XSLT-based business rules used by the Java [mustangproject](https://github.com/ZUGFeRD/mustangproject) validator — hundreds of rules maintained by the standards bodies (CEN, KoSIT).
+Validate invoice XML against official EN16931 and XRechnung Schematron rules using `XMLValidator`.
 
 ```typescript
 import { XMLValidator } from '@aifind/mustangjs';
