@@ -320,17 +320,14 @@ export class TransactionCalculator implements ValueProvider {
     percentage: Decimal | null,
   ): VATAmount | null {
     for (const va of vatAmounts) {
-      if (va.getCategoryCode() === vatCategoryCode) {
-        if (percentage == null) {
-          if (va.getApplicablePercent() == null) return va;
-        } else {
-          if (
-            va.getApplicablePercent() != null &&
-            percentage.eq(va.getApplicablePercent()!)
-          ) {
-            return va;
-          }
-        }
+      if (va.getCategoryCode() !== vatCategoryCode) continue;
+
+      const applicablePercent = va.getApplicablePercent();
+
+      if (percentage == null) {
+        if (applicablePercent == null) return va;
+      } else if (applicablePercent != null && percentage.eq(applicablePercent)) {
+        return va;
       }
     }
     return null;
