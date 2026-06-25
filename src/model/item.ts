@@ -6,6 +6,7 @@ import { LineCalculator } from '../calc/line-calculator.js';
 import { Product } from './product.js';
 import { Charge } from './charge.js';
 import { Allowance } from './allowance.js';
+import { IncludedNote } from './included-note.js';
 
 export class Item implements ExportableItem {
   protected price: Decimal = ZERO;
@@ -17,6 +18,7 @@ export class Item implements ExportableItem {
   protected id: string | null = null;
   protected parentLineID: string | null = null;
   protected lineStatusReasonCode: string | null = null;
+  protected notes: IncludedNote[] = [];
 
   constructor(product?: Product, price?: Decimal, quantity?: Decimal) {
     if (product !== undefined) this.product = product;
@@ -66,6 +68,17 @@ export class Item implements ExportableItem {
 
   addAllowance(allowance: AllowanceCharge): this {
     this.allowances.push(allowance);
+    return this;
+  }
+
+  /**
+   * Adds a free-text line note. A plain string is stored as an unspecified note
+   * (no subject code); pass an {@link IncludedNote} to attach a BT-21 subject code.
+   */
+  addNote(note: string | IncludedNote): this {
+    this.notes.push(
+      typeof note === 'string' ? IncludedNote.unspecifiedNote(note) : note,
+    );
     return this;
   }
 
@@ -121,6 +134,13 @@ export class Item implements ExportableItem {
     return this.lineStatusReasonCode;
   }
 
+  getNotesWithSubjectCode(): IncludedNote[] | null {
+    if (this.notes.length === 0) {
+      return null;
+    }
+    return this.notes;
+  }
+
   isCalculationRelevant(): boolean {
     const status = this.getLineStatusReasonCode();
     return status == null || status === 'DETAIL';
@@ -148,6 +168,11 @@ export class Item implements ExportableItem {
     if (data.itemCharges) {
       for (const c of data.itemCharges) {
         item.addCharge(Charge.fromJSON(c));
+      }
+    }
+    if (data.notesWithSubjectCode) {
+      for (const n of data.notesWithSubjectCode) {
+        item.addNote(IncludedNote.fromJSON(n));
       }
     }
     return item;

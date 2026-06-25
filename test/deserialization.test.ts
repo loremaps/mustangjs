@@ -5,6 +5,8 @@ import { CalculatedInvoice } from '../src/model/calculated-invoice.js';
 import { Invoice } from '../src/model/invoice.js';
 import { TransactionCalculator } from '../src/calc/transaction-calculator.js';
 import { Product } from '../src/model/product.js';
+import { Item } from '../src/model/item.js';
+import { SubjectCode } from '../src/constants/subject-code.js';
 import { readFixture } from './helpers/test-utils.js';
 
 describe('DeSerializationTest', () => {
@@ -89,5 +91,78 @@ describe('DeSerializationTest', () => {
     const fromJSON = CalculatedInvoice.fromJSON(json);
     fromJSON.calculate();
     expect(fromJSON.getDuePayable().toString()).toBe('34.51');
+  });
+
+  // Mirrors upstream ZF2ZInvoiceImporterTest.testImportIncludedNotes: parse
+  // document-level notes (BG-1) with their subject codes from a real CII fixture.
+  it('testImportIncludedNotes', () => {
+    const xml = readFixture('factur-x-extended.xml');
+    const zii = new ZUGFeRDInvoiceImporter(xml);
+    const ci = new CalculatedInvoice();
+    zii.extractInto(ci);
+
+    const notes = ci.getNotesWithSubjectCode();
+    expect(notes).not.toBeNull();
+    expect(notes!.length).toBe(3);
+
+    expect(notes![0].getContent()).toBe('Es bestehen Rabatt- oder Bonusvereinbarungen.');
+    expect(notes![0].getSubjectCode()).toBe(SubjectCode.AAK);
+
+    expect(notes![1].getContent()).toBe(
+      'Der Verkäufer bleibt Eigentümer der Waren bis zur vollständigen Erfüllung der Kaufpreisforderung.',
+    );
+    // AAJ is a valid UNTDID 4451 code that has no dedicated factory; the raw code is kept.
+    expect(notes![1].getSubjectCode()).toBe('AAJ');
+
+    expect(notes![2].getContent()).toContain('MUSTERLIEFERANT GMBH');
+    expect(notes![2].getContent()).toContain('GLN 4304171000002');
+    expect(notes![2].getSubjectCode()).toBe(SubjectCode.REG);
+  });
+
+  // Mirrors upstream DeSerializationTest.testDirectDebit / testFromJSON: notes are
+  // serialized under the key `notesWithSubjectCode`, at both document and line level.
+  it('testNotesFromJSON', () => {
+    const json = {
+      number: '123',
+      currency: 'EUR',
+      sender: { name: 'Test company', zip: '55232', street: 'teststr', location: 'teststadt', country: 'DE', taxID: '4711', vatID: 'DE0815' },
+      recipient: { name: 'Franz Müller', zip: '55232', street: 'teststr.12', location: 'Entenhausen', country: 'DE' },
+      notesWithSubjectCode: [
+        { content: 'FOURNISSEUR F SARL', subjectCode: 'REG' },
+        { content: 'RCS MAVILLE 123 456 789', subjectCode: 'ABL' },
+        { content: '35 ma rue, 75000 Paris', subjectCode: 'AAI' },
+        { content: 'Tout retard de paiement', subjectCode: null },
+      ],
+      zfitems: [
+        {
+          price: 3.0,
+          quantity: 1,
+          product: { unit: 'C62', name: 'Testprodukt', taxCategoryCode: 'S', vatpercent: 19 },
+          notesWithSubjectCode: [{ content: 'item level 1/1' }],
+        },
+      ],
+    };
+
+    const invoice = Invoice.fromJSON(json);
+
+    const notes = invoice.getNotesWithSubjectCode();
+    expect(notes).not.toBeNull();
+    expect(notes!.map((n) => n.getContent())).toEqual([
+      'FOURNISSEUR F SARL',
+      'RCS MAVILLE 123 456 789',
+      '35 ma rue, 75000 Paris',
+      'Tout retard de paiement',
+    ]);
+    expect(notes!.map((n) => n.getSubjectCode())).toEqual([
+      SubjectCode.REG,
+      SubjectCode.ABL,
+      SubjectCode.AAI,
+      null,
+    ]);
+
+    const itemNotes = (invoice.getZFItems()[0] as Item).getNotesWithSubjectCode();
+    expect(itemNotes).not.toBeNull();
+    expect(itemNotes![0].getContent()).toBe('item level 1/1');
+    expect(itemNotes![0].getSubjectCode()).toBeNull();
   });
 });

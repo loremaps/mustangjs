@@ -11,6 +11,8 @@ import { BankDetails } from '../src/model/bank-details.js';
 import { LegalOrganisation } from '../src/model/legal-organisation.js';
 import { Charge } from '../src/model/charge.js';
 import { Allowance } from '../src/model/allowance.js';
+import { IncludedNote } from '../src/model/included-note.js';
+import { SubjectCode } from '../src/constants/subject-code.js';
 import { ZUGFeRD2PullProvider } from '../src/export/zugferd2-pull-provider.js';
 import { ZUGFeRDInvoiceImporter } from '../src/import/invoice-importer.js';
 import { CalculatedInvoice } from '../src/model/calculated-invoice.js';
@@ -548,5 +550,93 @@ describe('Item allowance/charge BasisAmount (BT-137/142)', () => {
       "//*[local-name()='SpecifiedTradeAllowanceCharge'][*[local-name()='ChargeIndicator']/*[local-name()='Indicator']='true']";
     expect(xpathString(theXML, `${charge}/*[local-name()='BasisAmount']`)).toBe('500.00');
     expect(xpathString(theXML, `${charge}/*[local-name()='ActualAmount']`)).toBe('25.00');
+  });
+});
+
+// Mirrors upstream ZF2PushTest.testPushEdge note coverage: build document- and
+// line-level notes, export to CII, assert the XML, then re-import to verify round-trip.
+describe('IncludedNote (BG-1) export and round-trip', () => {
+  function exportEN16931(invoice: Invoice): string {
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('EN16931'));
+    zf2p.generateXML(invoice);
+    return zf2p.getXML();
+  }
+
+  function recipient(): TradeParty {
+    return new TradeParty('Franz Müller', 'teststr.12', '55232', 'Entenhausen', 'DE');
+  }
+
+  it('testPushEdge: exports document-level notes and round-trips them', () => {
+    const invoice = createFXInvoice(recipient())
+      .addNote('document level 1/2')
+      .addNote('document level 2/2')
+      .addGeneralNote('typed general remark');
+
+    const theXML = exportEN16931(invoice);
+
+    // Notes are emitted inside the ExchangedDocument
+    expect(theXML).toMatch(
+      /<rsm:ExchangedDocument>.*<ram:IncludedNote>.*<\/rsm:ExchangedDocument>/s,
+    );
+    expect(theXML).toContain('document level 1/2');
+    expect(theXML).toContain('document level 2/2');
+    // Only the typed note carries a SubjectCode
+    expect(theXML).toContain('<ram:SubjectCode>AAI</ram:SubjectCode>');
+    expect(xpathCount(theXML, 'IncludedNote')).toBe(3);
+    expect(xpathCount(theXML, 'SubjectCode')).toBe(1);
+
+    // Re-import
+    const zii = new ZUGFeRDInvoiceImporter(theXML);
+    const ci = new CalculatedInvoice();
+    zii.extractInto(ci);
+
+    const notes = ci.getNotesWithSubjectCode();
+    expect(notes).not.toBeNull();
+    expect(notes!.map((n) => n.getContent())).toEqual([
+      'document level 1/2',
+      'document level 2/2',
+      'typed general remark',
+    ]);
+    expect(notes!.map((n) => n.getSubjectCode())).toEqual([
+      null,
+      null,
+      SubjectCode.AAI,
+    ]);
+  });
+
+  it('exports a line-level note (preserving its subject code) and round-trips it', () => {
+    const item = new Item(
+      new Product('Testprodukt', '', 'C62', new Big(0)),
+      new Big('1.00'),
+      new Big(1),
+    )
+      .addNote('item level 1/1')
+      .addNote(IncludedNote.taxNote('line tax note'));
+
+    const theXML = exportEN16931(createFXInvoice(recipient()).addItem(item));
+
+    // The line note lives inside the line document, keeping its subject code
+    expect(theXML).toMatch(
+      /<ram:AssociatedDocumentLineDocument>.*<ram:IncludedNote><ram:Content>line tax note<\/ram:Content><ram:SubjectCode>TXD<\/ram:SubjectCode><\/ram:IncludedNote>.*<\/ram:AssociatedDocumentLineDocument>/s,
+    );
+    expect(theXML).toContain('item level 1/1');
+
+    // Re-import: the second item (index 1) carries the line notes
+    const zii = new ZUGFeRDInvoiceImporter(theXML);
+    const ci = new CalculatedInvoice();
+    zii.extractInto(ci);
+
+    const importedItem = ci.getZFItems()[1] as Item;
+    const lineNotes = importedItem.getNotesWithSubjectCode();
+    expect(lineNotes).not.toBeNull();
+    expect(lineNotes!.map((n) => n.getContent())).toEqual([
+      'item level 1/1',
+      'line tax note',
+    ]);
+    expect(lineNotes!.map((n) => n.getSubjectCode())).toEqual([
+      null,
+      SubjectCode.TXD,
+    ]);
   });
 });

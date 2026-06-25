@@ -3,6 +3,7 @@ import type { ExportableItem } from './exportable-item.js';
 import type { AllowanceCharge } from './allowance-charge.js';
 import type { TradeParty } from '../model/trade-party.js';
 import type { ReferencedDocument } from '../model/referenced-document.js';
+import type { IncludedNote } from '../model/included-note.js';
 import { ZERO } from '../decimal.js';
 
 export interface ExportableTransaction {
@@ -34,6 +35,7 @@ export interface ExportableTransaction {
   getTestIndicator?(): boolean;
   getBusinessProcessId?(): string | null;
   getObjectIdentifierReferencedDocument?(): ReferencedDocument | null;
+  getNotesWithSubjectCode?(): IncludedNote[] | null;
 }
 
 export const ExportableTransactionDefaults = {

@@ -7,6 +7,7 @@ import { Item } from './item.js';
 import { Charge } from './charge.js';
 import { Allowance } from './allowance.js';
 import { ReferencedDocument } from './referenced-document.js';
+import { IncludedNote } from './included-note.js';
 import { DocumentCodeType } from '../constants/document-code-type.js';
 
 export class Invoice implements ExportableTransaction {
@@ -23,6 +24,7 @@ export class Invoice implements ExportableTransaction {
   protected items: ExportableItem[] = [];
   protected allowances: AllowanceCharge[] = [];
   protected charges: AllowanceCharge[] = [];
+  protected notes: IncludedNote[] = [];
   protected totalPrepaidAmount: Decimal | null = null;
   protected roundingAmount: Decimal | null = null;
   protected detailedDeliveryDateStart: Date | null = null;
@@ -104,6 +106,54 @@ export class Invoice implements ExportableTransaction {
 
   addAllowance(allowance: AllowanceCharge): this {
     this.allowances.push(allowance);
+    return this;
+  }
+
+  /**
+   * Adds a free-text note (BG-1). A plain string is stored as an unspecified note
+   * (no subject code); pass an {@link IncludedNote} to attach a BT-21 subject code.
+   */
+  addNote(note: string | IncludedNote): this {
+    this.notes.push(
+      typeof note === 'string' ? IncludedNote.unspecifiedNote(note) : note,
+    );
+    return this;
+  }
+
+  addGeneralNote(content: string): this {
+    return this.addNote(IncludedNote.generalNote(content));
+  }
+
+  addRegulatoryNote(content: string): this {
+    return this.addNote(IncludedNote.regulatoryNote(content));
+  }
+
+  addLegalNote(content: string): this {
+    return this.addNote(IncludedNote.legalNote(content));
+  }
+
+  addCustomsNote(content: string): this {
+    return this.addNote(IncludedNote.customsNote(content));
+  }
+
+  addSellerNote(content: string): this {
+    return this.addNote(IncludedNote.sellerNote(content));
+  }
+
+  addTaxNote(content: string): this {
+    return this.addNote(IncludedNote.taxNote(content));
+  }
+
+  addIntroductionNote(content: string): this {
+    return this.addNote(IncludedNote.introductionNote(content));
+  }
+
+  addDiscountBonusNote(content: string): this {
+    return this.addNote(IncludedNote.discountBonusNote(content));
+  }
+
+  setNotesWithSubjectCode(notes: IncludedNote[]): this {
+    this.notes = notes;
     return this;
   }
 
@@ -276,6 +326,13 @@ export class Invoice implements ExportableTransaction {
     return null;
   }
 
+  getNotesWithSubjectCode(): IncludedNote[] | null {
+    if (this.notes.length === 0) {
+      return null;
+    }
+    return this.notes;
+  }
+
   getTotalPrepaidAmount(): Decimal | null {
     return this.totalPrepaidAmount;
   }
@@ -373,6 +430,11 @@ export class Invoice implements ExportableTransaction {
     if (data.zfallowances) {
       for (const a of data.zfallowances) {
         invoice.addAllowance(Allowance.fromJSON(a));
+      }
+    }
+    if (data.notesWithSubjectCode) {
+      for (const n of data.notesWithSubjectCode) {
+        invoice.addNote(IncludedNote.fromJSON(n));
       }
     }
     if (data.testIndicator) invoice.setTestIndicator(true);
