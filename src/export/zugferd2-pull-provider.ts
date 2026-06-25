@@ -113,6 +113,12 @@ export class ZUGFeRD2PullProvider {
     if (trans.getIssueDate() != null) {
       xml += udtDateElement('ram:IssueDateTime', trans.getIssueDate()!);
     }
+    const notes = trans.getNotesWithSubjectCode?.();
+    if (notes != null) {
+      for (const note of notes) {
+        xml += note.toCiiXml();
+      }
+    }
     xml += '</rsm:ExchangedDocument>';
 
     // SupplyChainTradeTransaction
@@ -150,6 +156,12 @@ export class ZUGFeRD2PullProvider {
           const lineStatusReasonCode = (currentItem as { getLineStatusReasonCode?(): string | null }).getLineStatusReasonCode?.();
           if (lineStatusReasonCode != null) {
             xml += `<ram:LineStatusReasonCode>${encodeXML(lineStatusReasonCode)}</ram:LineStatusReasonCode>`;
+          }
+        }
+        const itemNotes = currentItem.getNotesWithSubjectCode?.();
+        if (itemNotes != null) {
+          for (const note of itemNotes) {
+            xml += note.toCiiXml();
           }
         }
         xml += '</ram:AssociatedDocumentLineDocument>';

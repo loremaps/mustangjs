@@ -4,6 +4,7 @@ import { ZUGFeRDInvoiceImporter } from '../src/import/invoice-importer.js';
 import { Invoice } from '../src/model/invoice.js';
 import { CalculatedInvoice } from '../src/model/calculated-invoice.js';
 import { TransactionCalculator } from '../src/calc/transaction-calculator.js';
+import { SubjectCode } from '../src/constants/subject-code.js';
 
 describe('UBL Import', () => {
   it('testUBLInvoiceImport', () => {
@@ -198,5 +199,32 @@ describe('UBL Import', () => {
     expect(invoice.getSender()).not.toBeNull();
     expect(invoice.getRecipient()).not.toBeNull();
     expect(invoice.getZFItems().length).toBeGreaterThan(0);
+  });
+
+  // Mirrors upstream ZF2ZInvoiceImporterTest.testInvoiceImportUBL (document-level
+  // portion): a UBL <cbc:Note> that is a direct child of the invoice root is imported
+  // as a general note (BG-1). Notes nested under cac:PaymentTerms are intentionally
+  // not picked up.
+  it('testInvoiceImportUBLNote', () => {
+    const ublXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>UBL-1</cbc:ID>
+  <cbc:Note>This is a UBL note</cbc:Note>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+  <cac:PaymentTerms>
+    <cbc:Note>Zahlbar innerhalb 30 Tagen netto</cbc:Note>
+  </cac:PaymentTerms>
+</Invoice>`;
+
+    const ci = new CalculatedInvoice();
+    new ZUGFeRDInvoiceImporter(ublXml).extractInto(ci);
+
+    const notes = ci.getNotesWithSubjectCode();
+    expect(notes).not.toBeNull();
+    expect(notes!.length).toBe(1);
+    expect(notes![0].getContent()).toBe('This is a UBL note');
+    expect(notes![0].getSubjectCode()).toBe(SubjectCode.AAI);
   });
 });

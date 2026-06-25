@@ -8,6 +8,8 @@ export {
   CATEGORY_CODES_WITH_EXEMPTION_REASON,
 } from './constants/tax-category-code.js';
 export { DocumentCodeType } from './constants/document-code-type.js';
+export { SubjectCode } from './constants/subject-code.js';
+export type { SubjectCodeType } from './constants/subject-code.js';
 export { Profile, Profiles } from './constants/profiles.js';
 
 // Interfaces
@@ -30,6 +32,7 @@ export { Invoice } from './model/invoice.js';
 export { CalculatedInvoice } from './model/calculated-invoice.js';
 export { VATAmount } from './model/vat-amount.js';
 export { ReferencedDocument } from './model/referenced-document.js';
+export { IncludedNote } from './model/included-note.js';
 
 // Import
 export { ZUGFeRDInvoiceImporter } from './import/invoice-importer.js';

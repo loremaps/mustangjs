@@ -2,6 +2,7 @@ import type { Decimal } from '../decimal.js';
 import type { ExportableProduct } from './exportable-product.js';
 import type { AllowanceCharge } from './allowance-charge.js';
 import type { ValueProvider } from './value-provider.js';
+import type { IncludedNote } from '../model/included-note.js';
 import { ONE } from '../decimal.js';
 
 export interface ExportableItem extends ValueProvider {
@@ -17,6 +18,7 @@ export interface ExportableItem extends ValueProvider {
   getLineStatusReasonCode(): string | null;
   isCalculationRelevant(): boolean;
   getCalculation(): import('../calc/line-calculator.js').LineCalculator;
+  getNotesWithSubjectCode?(): IncludedNote[] | null;
 }
 
 export const ExportableItemDefaults = {

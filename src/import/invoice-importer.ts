@@ -11,6 +11,7 @@ import { BankDetails } from '../model/bank-details.js';
 import { Charge } from '../model/charge.js';
 import { Allowance } from '../model/allowance.js';
 import { ReferencedDocument } from '../model/referenced-document.js';
+import { IncludedNote } from '../model/included-note.js';
 import { Profiles, type Profile } from '../constants/profiles.js';
 
 type EStandard = 'cii' | 'ubl' | 'ubl_creditnote';
@@ -116,11 +117,32 @@ export class ZUGFeRDInvoiceImporter {
 
   private extractCII(invoice: Invoice): void {
     this.extractDocumentFields(invoice);
+    this.extractNotes(invoice);
     this.extractParties(invoice);
     this.extractLineItems(invoice);
     this.extractDocumentAllowancesCharges(invoice);
     this.extractSettlement(invoice);
     this.extractCalculatedAmounts(invoice);
+  }
+
+  /**
+   * Builds an {@link IncludedNote} from a `<ram:IncludedNote>` node, reading its
+   * `Content` and optional `SubjectCode` children.
+   */
+  private extractIncludedNote(noteNode: Node): IncludedNote {
+    const content = this.str("./*[local-name()='Content']", noteNode);
+    const subjectCode = this.str("./*[local-name()='SubjectCode']", noteNode);
+    return new IncludedNote(content, subjectCode || null);
+  }
+
+  /** Document-level free-text notes (BG-1) from the CII ExchangedDocument. */
+  private extractNotes(invoice: Invoice): void {
+    const noteNodes = this.nodes(
+      "//*[local-name()='ExchangedDocument']/*[local-name()='IncludedNote']",
+    );
+    for (const noteNode of noteNodes) {
+      invoice.addNote(this.extractIncludedNote(noteNode));
+    }
   }
 
   private str(xp: string, context?: Node): string {
@@ -395,6 +417,15 @@ export class ZUGFeRDInvoiceImporter {
       this.extractAllowanceCharge(acNode, item);
     }
 
+    // Line-level notes
+    const noteNodes = this.nodes(
+      "./*[local-name()='AssociatedDocumentLineDocument']/*[local-name()='IncludedNote']",
+      lineNode,
+    );
+    for (const noteNode of noteNodes) {
+      item.addNote(this.extractIncludedNote(noteNode));
+    }
+
     return item;
   }
 
@@ -610,6 +641,13 @@ export class ZUGFeRDInvoiceImporter {
 
     const currency = this.str(`/*[local-name()='${rootLocal}']/*[local-name()='DocumentCurrencyCode']`);
     if (currency) invoice.setCurrency(currency);
+
+    // Document-level notes (direct child Note elements, not nested PaymentTerms/Note)
+    const noteNodes = this.nodes(`/*[local-name()='${rootLocal}']/*[local-name()='Note']`);
+    for (const noteNode of noteNodes) {
+      const text = noteNode.textContent?.trim();
+      if (text) invoice.addNote(IncludedNote.generalNote(text));
+    }
 
     // Buyer reference
     const buyerRef = this.str(`/*[local-name()='${rootLocal}']/*[local-name()='BuyerReference']`);
