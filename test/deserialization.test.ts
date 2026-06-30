@@ -133,6 +133,7 @@ describe('DeSerializationTest', () => {
         { content: '35 ma rue, 75000 Paris', subjectCode: 'AAI' },
         { content: 'Tout retard de paiement', subjectCode: null },
       ],
+      cashDiscounts: [{ percent: 2, days: 14 }],
       zfitems: [
         {
           price: 3.0,
@@ -164,5 +165,10 @@ describe('DeSerializationTest', () => {
     expect(itemNotes).not.toBeNull();
     expect(itemNotes![0].getContent()).toBe('item level 1/1');
     expect(itemNotes![0].getSubjectCode()).toBeNull();
+
+    const discounts = invoice.getCashDiscounts();
+    expect(discounts).not.toBeNull();
+    expect(discounts![0].getPercent()!.eq(new Big(2))).toBe(true);
+    expect(discounts![0].getDays()).toBe(14);
   });
 });

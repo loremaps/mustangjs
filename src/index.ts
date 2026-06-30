@@ -33,6 +33,9 @@ export { CalculatedInvoice } from './model/calculated-invoice.js';
 export { VATAmount } from './model/vat-amount.js';
 export { ReferencedDocument } from './model/referenced-document.js';
 export { IncludedNote } from './model/included-note.js';
+export { CashDiscount } from './model/cash-discount.js';
+export { PaymentTerms } from './model/payment-terms.js';
+export { PaymentDiscountTerms } from './model/payment-discount-terms.js';
 
 // Import
 export { ZUGFeRDInvoiceImporter } from './import/invoice-importer.js';

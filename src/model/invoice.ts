@@ -8,6 +8,8 @@ import { Charge } from './charge.js';
 import { Allowance } from './allowance.js';
 import { ReferencedDocument } from './referenced-document.js';
 import { IncludedNote } from './included-note.js';
+import { CashDiscount } from './cash-discount.js';
+import { PaymentTerms } from './payment-terms.js';
 import { DocumentCodeType } from '../constants/document-code-type.js';
 
 export class Invoice implements ExportableTransaction {
@@ -25,6 +27,8 @@ export class Invoice implements ExportableTransaction {
   protected allowances: AllowanceCharge[] = [];
   protected charges: AllowanceCharge[] = [];
   protected notes: IncludedNote[] = [];
+  protected cashDiscounts: CashDiscount[] = [];
+  protected paymentTerms: PaymentTerms[] = [];
   protected totalPrepaidAmount: Decimal | null = null;
   protected roundingAmount: Decimal | null = null;
   protected detailedDeliveryDateStart: Date | null = null;
@@ -154,6 +158,37 @@ export class Invoice implements ExportableTransaction {
 
   setNotesWithSubjectCode(notes: IncludedNote[]): this {
     this.notes = notes;
+    return this;
+  }
+
+  /** Adds a cash discount ("Skonto") granted for early payment. */
+  addCashDiscount(cashDiscount: CashDiscount): this {
+    this.cashDiscounts.push(cashDiscount);
+    return this;
+  }
+
+  /**
+   * Sets the (single) structured payment terms. When set, this takes precedence
+   * over {@link getPaymentTermDescription} and {@link getDueDate} on export.
+   */
+  setPaymentTerms(paymentTerms: PaymentTerms): this {
+    if (this.paymentTerms.length === 0) {
+      this.paymentTerms.push(paymentTerms);
+    } else {
+      this.paymentTerms[0] = paymentTerms;
+    }
+    return this;
+  }
+
+  /** Adds an additional payment term (EXTENDED profile allows multiple terms). */
+  addPaymentTerms(paymentTerms: PaymentTerms): this {
+    this.paymentTerms.push(paymentTerms);
+    return this;
+  }
+
+  /** Replaces all payment terms (EXTENDED profile allows multiple terms). */
+  setExtendedPaymentTerms(paymentTerms: PaymentTerms[]): this {
+    this.paymentTerms = [...paymentTerms];
     return this;
   }
 
@@ -333,6 +368,24 @@ export class Invoice implements ExportableTransaction {
     return this.notes;
   }
 
+  getCashDiscounts(): CashDiscount[] | null {
+    if (this.cashDiscounts.length === 0) {
+      return null;
+    }
+    return this.cashDiscounts;
+  }
+
+  getPaymentTerms(): PaymentTerms | null {
+    if (this.paymentTerms.length === 0) {
+      return null;
+    }
+    return this.paymentTerms[0];
+  }
+
+  getExtendedPaymentTerms(): PaymentTerms[] {
+    return this.paymentTerms;
+  }
+
   getTotalPrepaidAmount(): Decimal | null {
     return this.totalPrepaidAmount;
   }
@@ -435,6 +488,16 @@ export class Invoice implements ExportableTransaction {
     if (data.notesWithSubjectCode) {
       for (const n of data.notesWithSubjectCode) {
         invoice.addNote(IncludedNote.fromJSON(n));
+      }
+    }
+    if (data.cashDiscounts) {
+      for (const cd of data.cashDiscounts) {
+        invoice.addCashDiscount(CashDiscount.fromJSON(cd));
+      }
+    }
+    if (data.paymentTerms) {
+      for (const pt of data.paymentTerms) {
+        invoice.addPaymentTerms(PaymentTerms.fromJSON(pt));
       }
     }
     if (data.testIndicator) invoice.setTestIndicator(true);

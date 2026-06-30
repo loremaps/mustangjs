@@ -4,6 +4,8 @@ import type { AllowanceCharge } from './allowance-charge.js';
 import type { TradeParty } from '../model/trade-party.js';
 import type { ReferencedDocument } from '../model/referenced-document.js';
 import type { IncludedNote } from '../model/included-note.js';
+import type { CashDiscount } from '../model/cash-discount.js';
+import type { PaymentTerms } from '../model/payment-terms.js';
 import { ZERO } from '../decimal.js';
 
 export interface ExportableTransaction {
@@ -36,6 +38,9 @@ export interface ExportableTransaction {
   getBusinessProcessId?(): string | null;
   getObjectIdentifierReferencedDocument?(): ReferencedDocument | null;
   getNotesWithSubjectCode?(): IncludedNote[] | null;
+  getCashDiscounts?(): CashDiscount[] | null;
+  getPaymentTerms?(): PaymentTerms | null;
+  getExtendedPaymentTerms?(): PaymentTerms[];
 }
 
 export const ExportableTransactionDefaults = {
@@ -65,5 +70,14 @@ export const ExportableTransactionDefaults = {
   },
   getObjectIdentifierReferencedDocument(): ReferencedDocument | null {
     return null;
+  },
+  getCashDiscounts(): CashDiscount[] | null {
+    return null;
+  },
+  getPaymentTerms(): PaymentTerms | null {
+    return null;
+  },
+  getExtendedPaymentTerms(): PaymentTerms[] {
+    return [];
   },
 };
