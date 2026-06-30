@@ -12,6 +12,7 @@ import { LegalOrganisation } from '../src/model/legal-organisation.js';
 import { Charge } from '../src/model/charge.js';
 import { Allowance } from '../src/model/allowance.js';
 import { IncludedNote } from '../src/model/included-note.js';
+import { CashDiscount } from '../src/model/cash-discount.js';
 import { SubjectCode } from '../src/constants/subject-code.js';
 import { ZUGFeRD2PullProvider } from '../src/export/zugferd2-pull-provider.js';
 import { ZUGFeRDInvoiceImporter } from '../src/import/invoice-importer.js';
@@ -638,5 +639,51 @@ describe('IncludedNote (BG-1) export and round-trip', () => {
       null,
       SubjectCode.TXD,
     ]);
+  });
+});
+
+// Mirrors upstream ZF2PushTest / XRTest cash-discount coverage: a cash discount
+// added to the standard test invoice survives a CII export → re-import round trip.
+describe('CashDiscount export and round-trip', () => {
+  function recipient(): TradeParty {
+    return new TradeParty('Franz Müller', 'teststr.12', '55232', 'Entenhausen', 'DE');
+  }
+
+  it('round-trips a structured cash discount in the Extended profile', () => {
+    const invoice = createFXInvoice(recipient()).addCashDiscount(
+      new CashDiscount(new Big(2), 14),
+    );
+
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('Extended'));
+    zf2p.generateXML(invoice);
+    const theXML = zf2p.getXML();
+
+    expect(theXML).toContain('Cash Discount');
+    expect(xpathCount(theXML, 'ApplicableTradePaymentDiscountTerms')).toBe(1);
+
+    const ci = new CalculatedInvoice();
+    new ZUGFeRDInvoiceImporter(theXML).extractInto(ci);
+    const discounts = ci.getCashDiscounts();
+    expect(discounts).not.toBeNull();
+    expect(discounts![0].getPercent()!.eq(new Big(2))).toBe(true);
+    expect(discounts![0].getDays()).toBe(14);
+  });
+
+  it('round-trips two #SKONTO# cash discounts in the XRechnung profile', () => {
+    const invoice = createXRInvoice(recipient())
+      .addCashDiscount(new CashDiscount(new Big(2), 7))
+      .addCashDiscount(new CashDiscount(new Big(3), 14));
+
+    const zf2p = new ZUGFeRD2PullProvider();
+    zf2p.setProfile(Profiles.getByName('XRechnung'));
+    zf2p.generateXML(invoice);
+    const theXML = zf2p.getXML();
+
+    expect(theXML).toContain('#SKONTO#');
+
+    const ci = new CalculatedInvoice();
+    new ZUGFeRDInvoiceImporter(theXML).extractInto(ci);
+    expect(ci.getCashDiscounts()!.length).toBe(2);
   });
 });

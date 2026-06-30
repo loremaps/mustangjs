@@ -10,6 +10,7 @@ import {
 import { TransactionCalculator } from '../calc/transaction-calculator.js';
 import { LineCalculator } from '../calc/line-calculator.js';
 import { TradeParty } from '../model/trade-party.js';
+import type { PaymentTerms } from '../model/payment-terms.js';
 import {
   nDigitFormat,
   nDigitFormatDecimalRange,
@@ -472,17 +473,42 @@ export class ZUGFeRD2PullProvider {
 
     // Payment terms
     if (!isMinimum) {
+      // Assemble the description, folding XRechnung cash discounts into it as
+      // the proprietary #SKONTO# free-text (the base description is XML-encoded,
+      // the appended skonto text is already safe).
       const ptDesc = trans.getPaymentTermDescription();
+      let description = ptDesc != null ? encodeXML(ptDesc) : null;
+      const cashDiscounts = trans.getCashDiscounts?.() ?? null;
+      if (isXRechnung && cashDiscounts != null) {
+        for (const cd of cashDiscounts) {
+          description = (description ?? '') + cd.toXRechnung();
+        }
+      }
+
+      const pt = trans.getPaymentTerms?.() ?? null;
       const hasDueDate = trans.getDueDate() != null;
-      if (ptDesc != null || hasDueDate) {
-        xml += '<ram:SpecifiedTradePaymentTerms>';
-        if (ptDesc != null) {
-          xml += `<ram:Description>${encodeXML(ptDesc)}</ram:Description>`;
+      if (pt == null) {
+        // Simple payment terms block (no structured payment terms set).
+        if (description != null || hasDueDate) {
+          xml += '<ram:SpecifiedTradePaymentTerms>';
+          if (description != null) {
+            xml += `<ram:Description>${description}</ram:Description>`;
+          }
+          if (hasDueDate) {
+            xml += udtDateElement('ram:DueDateDateTime', trans.getDueDate()!);
+          }
+          xml += '</ram:SpecifiedTradePaymentTerms>';
         }
-        if (hasDueDate) {
-          xml += udtDateElement('ram:DueDateDateTime', trans.getDueDate()!);
+      } else {
+        // Structured payment terms take precedence over description/due date.
+        xml += this.buildPaymentTermsXml(trans, calc);
+      }
+
+      // EXTENDED: each cash discount is emitted as its own structured block.
+      if (isExtended && cashDiscounts != null) {
+        for (const cd of cashDiscounts) {
+          xml += cd.toCiiXml();
         }
-        xml += '</ram:SpecifiedTradePaymentTerms>';
       }
     }
 
@@ -716,6 +742,68 @@ export class ZUGFeRD2PullProvider {
       xml += `<ram:Reason>${encodeXML(ac.getReason()!)}</ram:Reason>`;
     }
     xml += '</ram:SpecifiedTradeAllowanceCharge>';
+    return xml;
+  }
+
+  /**
+   * Builds the structured `<ram:SpecifiedTradePaymentTerms>` block(s) for the
+   * transaction's payment terms (and any extended terms). Each term may carry
+   * `<ram:ApplicableTradePaymentDiscountTerms>` with a basis amount (the grand
+   * total), calculation percent, and an optional relative base date + period.
+   * Ported from Java ZUGFeRD2PullProvider.buildPaymentTermsXml().
+   */
+  private buildPaymentTermsXml(
+    trans: ExportableTransaction,
+    calc: TransactionCalculator,
+  ): string {
+    const terms: PaymentTerms[] = [];
+    const pt = trans.getPaymentTerms?.();
+    if (pt != null) terms.push(pt);
+    const extended = trans.getExtendedPaymentTerms?.() ?? [];
+    // The first extended term is already covered by getPaymentTerms().
+    for (let i = 1; i < extended.length; i++) {
+      terms.push(extended[i]);
+    }
+    if (terms.length === 0) return '';
+
+    let xml = '';
+    for (const term of terms) {
+      xml += '<ram:SpecifiedTradePaymentTerms>';
+
+      const discountTerms = term.getDiscountTerms();
+      const dueDate = term.getDueDate();
+      if (
+        dueDate != null &&
+        discountTerms != null &&
+        discountTerms.getBaseDate() != null
+      ) {
+        throw new Error(
+          'if paymentTerms.dueDate is specified, paymentTerms.discountTerms.baseDate must not be specified',
+        );
+      }
+
+      const desc = term.getDescription();
+      if (desc != null) {
+        xml += `<ram:Description>${encodeXML(desc)}</ram:Description>`;
+      }
+      if (dueDate != null) {
+        xml += udtDateElement('ram:DueDateDateTime', dueDate);
+      }
+
+      if (discountTerms != null) {
+        xml += '<ram:ApplicableTradePaymentDiscountTerms>';
+        xml += `<ram:BasisAmount currencyID="${trans.getCurrency()}">${currencyFormat(calc.getGrandTotal())}</ram:BasisAmount>`;
+        xml += `<ram:CalculationPercent>${discountTerms.getCalculationPercentage().toString()}</ram:CalculationPercent>`;
+        const baseDate = discountTerms.getBaseDate();
+        if (baseDate != null) {
+          xml += udtDateElement('ram:BasisDateTime', baseDate);
+          xml += `<ram:BasisPeriodMeasure unitCode="${discountTerms.getBasePeriodUnitCode()}">${discountTerms.getBasePeriodMeasure()}</ram:BasisPeriodMeasure>`;
+        }
+        xml += '</ram:ApplicableTradePaymentDiscountTerms>';
+      }
+
+      xml += '</ram:SpecifiedTradePaymentTerms>';
+    }
     return xml;
   }
 }

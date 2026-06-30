@@ -12,6 +12,7 @@ import { Charge } from '../model/charge.js';
 import { Allowance } from '../model/allowance.js';
 import { ReferencedDocument } from '../model/referenced-document.js';
 import { IncludedNote } from '../model/included-note.js';
+import { CashDiscount } from '../model/cash-discount.js';
 import { Profiles, type Profile } from '../constants/profiles.js';
 
 type EStandard = 'cii' | 'ubl' | 'ubl_creditnote';
@@ -589,6 +590,85 @@ export class ZUGFeRDInvoiceImporter {
       invoice.setObjectIdentifierReferencedDocument(doc);
       break;
     }
+
+    this.extractCashDiscounts(invoice);
+  }
+
+  /**
+   * Parses cash discounts ("Skonto") from `<ram:ApplicableTradePaymentDiscountTerms>`
+   * blocks and from any `#SKONTO#` free-text in the payment-terms description.
+   * Mirrors Java ZUGFeRDInvoiceImporter: only days + percent are recovered (the
+   * basis amount is not), and the structured PaymentTerms are not reconstructed.
+   */
+  private extractCashDiscounts(invoice: Invoice): void {
+    const discountNodes = this.nodes(
+      "//*[local-name()='SpecifiedTradePaymentTerms']/*[local-name()='ApplicableTradePaymentDiscountTerms']",
+    );
+    for (const discountNode of discountNodes) {
+      let days: number | null = null;
+      const unitCode = this.str(
+        "./*[local-name()='BasisPeriodMeasure']/@unitCode",
+        discountNode,
+      );
+      if (unitCode === 'DAY') {
+        const measure = this.str(
+          "./*[local-name()='BasisPeriodMeasure']",
+          discountNode,
+        );
+        if (measure) days = Math.round(parseFloat(measure));
+      }
+
+      const percentStr = this.str(
+        "./*[local-name()='CalculationPercent']",
+        discountNode,
+      );
+      const percent = percentStr ? new Big(percentStr) : null;
+
+      // Fallback: derive days from the sibling DueDateDateTime minus issue date.
+      if (days == null) {
+        const dueStr = this.str(
+          "../*[local-name()='DueDateDateTime']/*[local-name()='DateTimeString']",
+          discountNode,
+        );
+        const issueDate = invoice.getIssueDate();
+        if (dueStr && issueDate) {
+          const diffMs = Math.abs(
+            this.parseDate(dueStr).getTime() - issueDate.getTime(),
+          );
+          days = Math.round(diffMs / 86_400_000);
+        }
+      }
+
+      if (percent != null && days != null) {
+        invoice.addCashDiscount(new CashDiscount(percent, days));
+      }
+    }
+
+    // XRechnung free-text (#SKONTO#) embedded in the CII payment-terms description.
+    this.parseSkontoFreetext(
+      this.str(
+        "//*[local-name()='SpecifiedTradePaymentTerms']/*[local-name()='Description']",
+      ),
+      invoice,
+    );
+  }
+
+  /**
+   * Parses `#SKONTO#TAGE=..#PROZENT=..#` free-text lines (XRechnung) into cash
+   * discounts. Used for both CII descriptions and UBL payment-term notes.
+   */
+  private parseSkontoFreetext(text: string | null, invoice: Invoice): void {
+    if (!text || text.length <= 3) return;
+    for (const line of text.split('\n')) {
+      if (!line.startsWith('#SKONTO#')) continue;
+      const daysMatch = /#TAGE=(.*?)#/i.exec(line);
+      const percentMatch = /#PROZENT=(.*?)#/i.exec(line);
+      if (daysMatch && percentMatch) {
+        invoice.addCashDiscount(
+          new CashDiscount(new Big(percentMatch[1]), parseInt(daysMatch[1], 10)),
+        );
+      }
+    }
   }
 
   private extractCalculatedAmounts(invoice: Invoice): void {
@@ -673,6 +753,7 @@ export class ZUGFeRDInvoiceImporter {
       `/*[local-name()='${rootLocal}']/*[local-name()='PaymentTerms']/*[local-name()='Note']`
     );
     if (paymentTerms) invoice.setPaymentTermDescription(paymentTerms);
+    this.parseSkontoFreetext(paymentTerms, invoice);
 
     // Invoice period
     const periodStart = this.str(`/*[local-name()='${rootLocal}']/*[local-name()='InvoicePeriod']/*[local-name()='StartDate']`);
